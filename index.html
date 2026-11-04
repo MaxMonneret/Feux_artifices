@@ -235,6 +235,10 @@ th{color:var(--mut);font-weight:600;font-size:12px;text-transform:uppercase;lett
     <div class="grp"><button class="btn sm" id="tUndo" title="Ctrl+Z">↶</button><button class="btn sm" id="tRedo" title="Ctrl+Y">↷</button></div><span class="vsep"></span>
     <div class="grp"><label data-i="zoom"></label><input type="range" id="zoom" min="0" max="100" step="1"></div><span class="vsep"></span>
     <div class="grp"><label data-i="snap"></label><select id="snap" class="btn sm"><option value="0">—</option><option value="0.05">0.05 s</option><option value="0.1" selected>0.1 s</option><option value="0.25">0.25 s</option><option value="0.5">0.5 s</option><option value="beat" data-i="beatOpt"></option></select></div><span class="vsep"></span>
+    <div class="grp"><button class="btn sm" id="eCopy" data-i="edCopy" title="Ctrl+C"></button><button class="btn sm" id="eCut" data-i="edCut" title="Ctrl+X"></button><button class="btn sm" id="ePaste" data-i="edPaste" title="Ctrl+V"></button><button class="btn sm" id="eDup" data-i="edDup" title="Ctrl+D"></button></div><span class="vsep"></span>
+    <div class="grp"><button class="btn sm" id="eRep" data-i="edRep"></button><input type="number" id="eRepN" min="2" max="32" value="2" style="width:52px"></div><span class="vsep"></span>
+    <div class="grp"><button class="btn sm" id="eL" title="←">◀</button><input type="number" id="eShift" step="0.1" min="0.05" value="0.5" style="width:62px"><span style="color:var(--mut);font-size:12px">s</span><button class="btn sm" id="eR" title="→">▶</button></div><span class="vsep"></span>
+    <button class="btn sm" id="eFit" data-i="edFit" title="Z"></button><span class="vsep"></span>
     <label class="chk" style="margin:0"><input type="checkbox" id="cFollow" checked><span data-i="follow"></span></label>
     <span class="sp"></span><span id="tlInfo" style="color:var(--mut);font-size:12px"></span>
   </div>
@@ -1669,6 +1673,36 @@ function fitView(){
 $('#bFit').onclick=()=>{const d=fitView();if(d)toast(t('fitDone',d))};
 {const _cm=$('#cMetric').onchange;$('#cMetric').onchange=e=>{_cm(e);if(PR.metric)fitView()}}
 {const _ns=newShow;newShow=function(o){_ns(o);if(PR.metric)fitView()}}
+
+/* ---------- ÉDITEUR : copier / couper / coller, répéter un motif, décaler un bloc, zoom sur la sélection ---------- */
+Object.assign(I.fr,{edCopy:'Copier',edCut:'Couper',edPaste:'Coller',edDup:'Dupliquer',edRep:'Répéter ×',edFit:'Zoom sélection',edNoSel:'Sélectionnez d’abord des tirs',edNoClip:'Rien à coller : copiez d’abord des tirs',
+  edCopied:n=>n+' tir(s) copié(s)',edPasted:n=>n+' tir(s) collé(s) à la tête de lecture',edRepDone:(n,k)=>n+' tir(s) répété(s) ×'+k,edShifted:(n,s)=>n+' tir(s) décalé(s) de '+s+' s',edNoRoom:'Limite de 1800 tirs atteinte'});
+Object.assign(I.en,{edCopy:'Copy',edCut:'Cut',edPaste:'Paste',edDup:'Duplicate',edRep:'Repeat ×',edFit:'Zoom selection',edNoSel:'Select some shots first',edNoClip:'Nothing to paste: copy some shots first',
+  edCopied:n=>n+' shot(s) copied',edPasted:n=>n+' shot(s) pasted at the playhead',edRepDone:(n,k)=>n+' shot(s) repeated ×'+k,edShifted:(n,s)=>n+' shot(s) shifted by '+s+' s',edNoRoom:'Limit of 1800 shots reached'});
+let CLIP=[];
+const cloneCue=(c,dt)=>{const d=mk(Object.assign({},c,{id:undefined}));d.id=nextId++;d.t=Math.max(0,c.t+dt);fixT(d);return d};
+function edCopy(){const L=selCues();if(!L.length){toast(t('edNoSel'));return false}const t0=Math.min(...L.map(c=>c.t));CLIP=L.map(c=>({c:Object.assign({},c),dt:c.t-t0}));toast(t('edCopied',L.length));return true}
+function edCut(){if(edCopy())delSel()}
+function edPaste(){if(!CLIP.length){toast(t('edNoClip'));return}if(PR.cues.length+CLIP.length>1800){toast(t('edNoRoom'));return}
+  const base=snapT(Math.max(0,PL.t)),ids=[];CLIP.forEach(x=>{const d=cloneCue(x.c,0);d.t=Math.max(0,base+x.dt);fixT(d);PR.cues.push(d);ids.push(d.id)});SEL=new Set(ids);commit();changed();toast(t('edPasted',ids.length))}
+function edRepeat(){const L=selCues();if(!L.length){toast(t('edNoSel'));return}const k=clamp(Math.round(+$('#eRepN').value)||2,2,32);
+  if(PR.cues.length+L.length*(k-1)>1800){toast(t('edNoRoom'));return}
+  const t0=Math.min(...L.map(c=>c.t)),t1=Math.max(...L.map(c=>c.t+(hasDur(c)?c.dur:0))),g=60/(PR.bpm||120),step=Math.max(g,Math.ceil((t1-t0)/g-1e-6)*g),ids=new Set(L.map(c=>c.id));
+  for(let i=1;i<k;i++)L.forEach(c=>{const d=cloneCue(c,i*step);PR.cues.push(d);ids.add(d.id)});
+  SEL=ids;commit();changed();toast(t('edRepDone',L.length,k))}
+function edShift(dir){const d=Math.max(.05,+$('#eShift').value||.5)*dir;let L=selCues();if(!L.length)L=PR.cues.filter(c=>c.t>=PL.t-1e-6);if(!L.length){toast(t('edNoSel'));return}
+  L.forEach(c=>{c.t=Math.max(0,c.t+d);fixT(c)});commit();changed();toast(t('edShifted',L.length,(d>0?'+':'')+d.toFixed(2)))}
+function edFit(){const L=selCues();let t0=0,t1=Math.max(10,duration());if(L.length){t0=Math.min(...L.map(c=>c.t));t1=Math.max(...L.map(c=>c.t+(hasDur(c)?c.dur:0)))}
+  const w=tlc.clientWidth||800;setZoom(clamp((w-TL.gut-30)/Math.max(2,t1-t0+1),6,300));TL.scroll=Math.max(0,t0-.5)}
+$('#eCopy').onclick=edCopy;$('#eCut').onclick=edCut;$('#ePaste').onclick=edPaste;$('#eDup').onclick=dupSel;$('#eRep').onclick=edRepeat;$('#eL').onclick=()=>edShift(-1);$('#eR').onclick=()=>edShift(1);$('#eFit').onclick=edFit;
+document.addEventListener('keydown',e=>{
+  const tag=(e.target.tagName||'').toLowerCase();if(tag==='input'&&e.target.type!=='range'&&e.target.type!=='checkbox'||tag==='select'||tag==='textarea')return;
+  const k=e.key.toLowerCase(),ctrl=e.ctrlKey||e.metaKey;
+  if(ctrl&&k==='c'){if(SEL.size){e.preventDefault();edCopy()}}
+  else if(ctrl&&k==='x'){if(SEL.size){e.preventDefault();edCut()}}
+  else if(ctrl&&k==='v'){if(CLIP.length){e.preventDefault();edPaste()}}
+  else if(!ctrl&&!e.altKey&&k==='z'){e.preventDefault();edFit()}
+});
 
 /* =====================================================================
    16e. SPECTACLES AUTOMATIQUES V2 : styles, chorégraphies, structure musicale, montage musical automatique
