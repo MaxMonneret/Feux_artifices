@@ -1662,7 +1662,7 @@ function genShow(o){
   const dur=o.dur,beat=60/o.bpm,bar=beat*4,t0=Math.ceil(3/beat)*beat,tEnd=Math.max(t0+12,dur-8),span=tEnd-t0,inten=o.inten/100,out=[];
   const add=x=>{const c=mk(x);if(x.dur)c.dur=Math.round(c.dur*2)/2;fixT(c);out.push(c);return c};
   const pool=k=>Array.isArray(S.fx)?S.fx:(S.fx[k]||S.fx.peak||['peony']);
-  const useA=!!(o.beats&&AU.env&&AU.sections&&AU.sections.length),fStart=tEnd-span*.13;
+  const useA=!!(o.beats&&AU.env&&AU.sections&&AU.sections.length),fStart=tEnd-Math.min(Math.max(span*.28,12),17,span*.6);
   /* structure : sections issues de la musique, ou structure type */
   let secs;
   if(useA)secs=AU.sections.filter(s=>s.b>t0&&s.a<tEnd).map(s=>({a:Math.max(t0,s.a),b:Math.min(tEnd,s.b),lvl:s.lvl,k:s.k===2?'peak':s.k===1?'build':(s.a<t0+span*.18?'intro':'break')}));
@@ -1734,15 +1734,31 @@ function genShow(o){
   drops.forEach(dropMoment);
   secs.filter(s=>s.k==='break'&&s.b-s.a>5).forEach(s=>{[2,3].forEach(p=>add({t:s.a+beat,fx:'curtain',poste:p,dur:Math.min(10,s.b-s.a-2),c1:S.gold,c2:S.gold,h:.6,cal:100}))});
   for(let k=0;k<S.curtains;k++){const t=t0+span*(.5+k*.12);add({t:Math.round(t/beat)*beat,fx:'curtain',poste:[1,4,2,3][k%4],dur:Math.min(10,span*.12),c1:S.gold,c2:S.gold,h:.6,cal:100})}
-  /* final : crescendo en paires symétriques, chasse, salve, mines, cascades dorées, bouquet de gros calibres */
-  const f0=tEnd-1;
-  for(let i=0;i<6;i++){const pp=S.pal[i%S.pal.length],c=Math.min(S.calMax,i<2?50:i<4?75:100);[i%3,5-i%3].forEach(p=>add({t:f0-beat*8+i*beat,fx:pickFx('finale'),poste:p,cal:c,c1:pp[0],c2:pp[1],h:.55+i*.06,ang:ang(p)}))}
-  PAT.chase(f0-beat*2,S.pal[0],75,pickFx('finale'));
-  add({t:f0,fx:'volley',poste:2,dur:Math.min(9,dur*.1),c1:S.pal[0][0],c2:S.pal[S.pal.length-1][0],cal:75,cnt:1,h:.8});
-  [0,2,3,5].forEach((po,i)=>add({t:f0+2+i*.5,fx:'mine',poste:po,cal:100,c1:S.pal[i%S.pal.length][0],c2:S.alt,ang:po<2?12:-12}));
-  add({t:f0+5,fx:'curtain',poste:1,dur:7,c1:S.gold,c2:S.gold,h:.62,cal:100});add({t:f0+5,fx:'curtain',poste:4,dur:7,c1:S.gold,c2:S.gold,h:.62,cal:100});
-  const fin=pool('finale');[[2,0],[3,1],[1,2],[4,3],[2,4]].forEach(([po,i],n)=>add({t:f0+6+n*.45,fx:fin[i%fin.length],poste:po,cal:Math.min(150,S.calMax),c1:S.gold,c2:S.alt,h:.78+(n%2)*.1,ang:n%2?6:-6}));
-  return out.slice(0,900);
+  /* BOUQUET FINAL (inspiré des vrais spectacles) :
+     1. crescendo : paires symétriques de plus en plus rapprochées et de plus en plus gros ;
+     2. courte respiration avec des comètes qui montent ;
+     3. bouquet : toute la ligne de tir part ensemble (bombes dorées, stroboscopes, rideaux, mines) ;
+     4. deuxième vague en couleurs, puis le coup de tonnerre final et les cascades qui retombent. */
+  const tB=tEnd-2,eco=o.style==='eco',cm=S.calMax,cap=c=>Math.min(cm,c),fin=pool('finale'),big=cap(150),mid=cap(100);
+  {let t=fStart,g=beat*1.1,i=0;const tr=tB-2.6;
+    while(t<tr&&i<60){const p=clamp((t-fStart)/Math.max(1,tr-fStart),0,1),pp=S.pal[i%S.pal.length],c=cap(p<.3?50:p<.65?75:100);
+      [i%3,5-i%3].forEach((po,k)=>add({t:t+k*.06,fx:pickFx('finale'),poste:po,cal:c,c1:pp[0],c2:pp[1],h:clamp(.55+p*.35,.45,.92),ang:ang(po)}));
+      if(p>.55&&!eco){const q=2+(i%2);add({t,fx:pickFx('finale'),poste:q,cal:cap(75),c1:S.gold,c2:S.alt,h:.8,ang:0})}
+      t+=g;g=Math.max(beat*.3,g*.9);i++}}
+  for(let i=0;i<6;i++)add({t:tB-1.7+i*.14,fx:'comet',poste:[0,5,1,4,2,3][i],cal:50,c1:S.gold,c2:S.alt,h:.7,ang:i<3?8:-8});
+  add({t:tB-.8,fx:'volley',poste:2,dur:Math.min(6,dur*.07),c1:S.pal[0][0],c2:S.pal[S.pal.length-1][0],cal:75,cnt:eco?.7:1.2,h:.8});
+  /* le bouquet : tous les postes ensemble, les plus gros au centre */
+  const bq=['brocade','willow','dahlia','chrysanthemum'].filter(f=>f in FX);
+  for(let po=0;po<6;po++){const ctr=po===2||po===3;add({t:tB,fx:ctr?(fin.includes('brocade')?'brocade':rp(fin)):rp(fin),poste:po,cal:ctr?big:mid,c1:S.gold,c2:S.alt,h:ctr?.9:.78,ang:po<3?-5:5})}
+  if(!eco){[1,4].forEach(po=>add({t:tB+.25,fx:'strobe',poste:po,cal:cap(75),c1:'#fff4e0',c2:S.gold,h:.7,ang:po<2?8:-8}));
+    for(let po=0;po<6;po++)add({t:tB+.5,fx:'curtain',poste:po,dur:8,c1:S.gold,c2:S.gold,h:.6,cal:cap(100)});
+    [0,5].forEach((po,k)=>add({t:tB+.4,fx:'mine',poste:po,cal:cap(100),c1:S.pal[k%S.pal.length][0],c2:S.alt,ang:k?-14:14}))}
+  /* deuxième vague : couleurs du style, calibre élevé, en éventail rapide */
+  [0,1,2,3,4,5].forEach((po,i)=>{const pp=S.pal[i%S.pal.length];add({t:tB+1.5+i*.18,fx:rp(fin),poste:po,cal:mid,c1:pp[0],c2:pp[1],h:.82,ang:ang(po)})});
+  /* coup de tonnerre final : deux gros calibres au centre, ligne de tir en or, puis silence et cascades */
+  [2,3].forEach((po,k)=>add({t:tB+3.6,fx:k?'willow':(fin.includes('brocade')?'brocade':rp(fin)),poste:po,cal:big,c1:S.gold,c2:'#fff4e0',h:.92,ang:k?5:-5}));
+  if(!eco)[0,1,4,5].forEach((po,k)=>add({t:tB+3.9+k*.1,fx:'willow',poste:po,cal:mid,c1:S.gold,c2:S.gold,h:.8,ang:po<2?-8:8}));
+  return out.slice(0,1400);
 }
 
 /* ---------- montage musical automatique ---------- */
@@ -1758,22 +1774,49 @@ function featsOf(buf){
 }
 async function trkFeats(tk){if(tk.fe)return tk.fe;tk.fe=featsOf(await trkBuf(tk));return tk.fe}
 const bpmDist=(a,b)=>{let d=Math.abs(a-b);d=Math.min(d,Math.abs(a*2-b),Math.abs(a-b*2));return d};
+/* grille de mesures d'un morceau : phase des temps (d'après les attaques) puis temps fort de la mesure */
+function gridOf(tk){const fe=tk.fe;if(fe.grid)return fe.grid;
+  const beat=60/(fe.bpm||120),ons=fe.ons||[];let bp=0,bs=-1;
+  for(let p=0;p<beat;p+=.01){let sc=0;for(const o of ons){const d=((o-p)%beat+beat)%beat,dd=Math.min(d,beat-d);if(dd<.05)sc+=1-dd/.05}if(sc>bs){bs=sc;bp=p}}
+  const cnt=[0,0,0,0];for(const o of ons){const n=Math.round((o-bp)/beat),dd=Math.abs(o-(bp+n*beat));if(dd<.05)cnt[((n%4)+4)%4]+=1-dd/.05}
+  let bo=0;for(let k=1;k<4;k++)if(cnt[k]>cnt[bo])bo=k;
+  return fe.grid={beat,bar:beat*4,t0:bp+bo*beat}}
+const snapBar=(tk,t)=>{const g=gridOf(tk);return g.t0+Math.round((t-g.t0)/g.bar)*g.bar};
 async function autoMontage(o){
   const tks=TRK.slice();if(!tks.length)return false;
   for(const tk of tks)await trkFeats(tk);
   {const mr=Math.max(1e-9,...tks.map(x=>x.fe.rms)),md=Math.max(1e-9,...tks.map(x=>x.fe.dens)),bs=tks.map(x=>x.fe.bpm),lo=Math.min(...bs),hi=Math.max(...bs);
    tks.forEach(x=>{x.fe.score=.5*x.fe.rms/mr+.25*x.fe.dens/md+.25*(hi>lo?(x.fe.bpm-lo)/(hi-lo):.5)})}
+  /* ordre : montée en intensité, tempos voisins d'un morceau au suivant ; le plus fort termine */
   let order;
   if(o.arc==='flat'){order=tks.slice().sort((a,b)=>a.fe.bpm-b.fe.bpm)}
   else{const asc=o.arc!=='down',rest=tks.slice().sort((a,b)=>asc?a.fe.score-b.fe.score:b.fe.score-a.fe.score);order=[rest.shift()];
     while(rest.length){const cur=order[order.length-1];let bi=0,bs=1e9;rest.forEach((c,i)=>{const e=(asc?cur.fe.score-c.fe.score:c.fe.score-cur.fe.score);const sc=bpmDist(cur.fe.bpm,c.fe.bpm)+Math.max(0,e)*80;if(sc<bs){bs=sc;bi=i}});order.push(rest.splice(bi,1)[0])}}
-  const n=order.length,x=n>1?clamp(o.x,0,8):0,total=Math.max(30,o.dur),base=(total+x*(n-1))/n;
+  const n=order.length,total=Math.max(30,o.dur),xReq=n>1?clamp(o.x,0,8):0;
+  /* fondu : un nombre entier de mesures si les tempos se ressemblent, une seule mesure (court) sinon */
+  const xs=order.map((tk,i)=>{if(!i)return 0;const bar=gridOf(tk).bar,prev=order[i-1],compat=bpmDist(prev.fe.bpm,tk.fe.bpm)<6;if(!xReq)return 0;
+    return +(compat?clamp(Math.round(xReq/bar)*bar,bar,10):clamp(bar,1.2,3)).toFixed(2)});
+  const base=(total+xs.reduce((q,v)=>q+v,0))/n;
   let lens=order.map(tk=>Math.min(base,tk.dur||base));let miss=n*base-lens.reduce((q,v)=>q+v,0);
   for(let pass=0;pass<3&&miss>1;pass++){const caps=order.map((tk,i)=>Math.max(0,(tk.dur||0)-lens[i])),tc=caps.reduce((q,v)=>q+v,0);if(tc<=0)break;const give=Math.min(miss,tc);lens=lens.map((l,i)=>l+give*caps[i]/tc);miss-=give}
-  const snap=(tk,t)=>{let best=t,bd=.35;for(const v of tk.fe.ons){const d=Math.abs(v-t);if(d<bd){bd=d;best=v}}return best};
-  PR.montage=order.map((tk,i)=>{const D=tk.dur,L=Math.min(lens[i],D);let s=0;
-    if(i>0||o.arc==='down'){let bs=-1,bv=-1;for(let a=0;a+L<=D+1e-6;a+=.5){let sum=0,c=0;for(let k=Math.floor(a*2);k<Math.floor((a+L)*2)&&k<tk.fe.env.length;k++){sum+=tk.fe.env[k];c++}const v=c?sum/c:0;if(v>bv){bv=v;bs=a}}s=Math.max(0,bs)}
-    s=snap(tk,s);let e=Math.min(D,snap(tk,s+L));if(e-s<5)e=Math.min(D,s+L);return{tid:tk.id,s:+s.toFixed(2),e:+e.toFixed(2),x:i?x:0}});
+  const lastI=n-1;
+  PR.montage=order.map((tk,i)=>{
+    const D=tk.dur,g=gridOf(tk),ph=g.bar*4;
+    /* durée arrondie à des phrases de 4 mesures (au moins 2 mesures) */
+    let L=Math.min(lens[i],D);L=Math.max(g.bar*2,Math.round(L/ph)*ph);if(L>D)L=Math.floor(D/g.bar)*g.bar;
+    let s0=0,e0;
+    if(i===lastI&&n>1&&o.arc!=='down'){
+      /* dernier morceau : on garde sa vraie fin (la conclusion du morceau), la coupe d'entrée se fait sur une mesure */
+      e0=D;s0=Math.max(0,D-L);s0=Math.max(0,snapBar(tk,s0));if(s0>D-g.bar*2)s0=Math.max(0,D-L)}
+    else{
+      if(i>0||o.arc==='down'){let bs=-1,bv=-1;
+        for(let a=snapBar(tk,0);a+L<=D+1e-6;a+=g.bar){if(a<0)continue;let sum=0,c=0;for(let k=Math.floor(a*2);k<Math.floor((a+L)*2)&&k<tk.fe.env.length;k++){sum+=tk.fe.env[k];c++}const v=c?sum/c:0;if(v>bv){bv=v;bs=a}}
+        s0=Math.max(0,bs)}
+      else{s0=0}  /* premier morceau : depuis son introduction */
+      e0=Math.min(D,s0+L);
+      /* sortie : sur une barre de mesure, pour que le fondu enchaîne proprement */
+      e0=Math.min(D,snapBar(tk,s0+L));if(e0-s0<g.bar*2)e0=Math.min(D,s0+L)}
+    return{tid:tk.id,s:+s0.toFixed(2),e:+e0.toFixed(2),x:xs[i]}});
   autosave();return true;
 }
 async function autoAll(){
