@@ -1388,13 +1388,15 @@ Object.assign(I.fr,{music2:'Musiques',musTitle:'Bibliothèque musicale et montag
   musToMont:'+ Montage',musUse:'Utiliser',musEdit:'Modifier',musSrc:'Source et licence',musCredit:'Texte de crédit (à copier)',musTags:'Étiquettes',musNotes:'Notes',musVerified:'Licence vérifiée pour mon usage (spectacle public)',
   musNone:'Aucun morceau. Ajoutez des fichiers que vous avez le droit d’utiliser.',musNoStore:'Stockage indisponible : la bibliothèque ne sera pas conservée à la fermeture.',musHelp:'Ajoutez des morceaux dont vous avez téléchargé vous-même le fichier, dans le respect de leur licence. Pour un spectacle payé par un client ou diffusé en public, vérifiez que la licence couvre cet usage. L’appli ne contient aucune musique du commerce.',
   monEmpty:'Ajoutez des morceaux depuis la bibliothèque avec « + Montage ».',monStart:'Début (s)',monEnd:'Fin (s)',monX:'Fondu croisé (s)',monTotal:'Durée totale',monPrev:'▶ Écouter',monStop:'■ Arrêter',monUse:'Utiliser pour le spectacle',monWav:'Exporter en WAV',monCredits:'Copier les crédits',monCopied:'Crédits copiés',monOk:'Montage appliqué',monMissing:'Morceau introuvable dans la bibliothèque',
-  monWarn:l=>'Licence non vérifiée pour : '+l+'. Continuer quand même ?',musSheet:'Musiques et licences',musAdded:n=>n+' morceaux ajoutés',musDecodeErr:'Fichier audio illisible : ',musSaved:'Morceau enregistré',musDeleted:'Morceau retiré',musDelConfirm:'Retirer ce morceau de la bibliothèque ?',musDelete:'Retirer'});
+  monWarn:l=>'Licence non vérifiée pour : '+l+'. Continuer quand même ?',musSheet:'Musiques et licences',musAdded:n=>n+' morceaux ajoutés',musDecodeErr:'Fichier audio illisible : ',musSaved:'Morceau enregistré',musDeleted:'Morceau retiré',musDelConfirm:'Retirer ce morceau de la bibliothèque ?',musDelete:'Retirer',musSelAll:'Tout sélectionner',musSelNone:'Tout désélectionner',musAddSel:n=>'Ajouter la sélection au montage ('+n+')',musAddAll:'Tout ajouter au montage',musInMont:n=>n+' morceau(x) ajouté(s) au montage',musMontCnt:n=>'Montage ('+n+')',musMontOpen:'Voir le montage'});
 Object.assign(I.en,{music2:'Music',musTitle:'Music library and montage',musLib:'Library',musMont:'Montage',musAdd:'Add tracks…',musSearch:'Search…',musTitleCol:'Title',musArtist:'Artist',musDur:'Length',musBpm:'BPM',musLic:'Licence',musLicOk:'Verified',musLicNo:'To check',
   musToMont:'+ Montage',musUse:'Use',musEdit:'Edit',musSrc:'Source and licence',musCredit:'Credit text (to copy)',musTags:'Tags',musNotes:'Notes',musVerified:'Licence verified for my use (public show)',
   musNone:'No tracks yet. Add files you have the right to use.',musNoStore:'Storage unavailable: the library will not be kept after closing.',musHelp:'Add tracks whose files you downloaded yourself, within their licence terms. For a show paid for by a client or performed in public, check that the licence covers that use. The app contains no commercial music.',
   monEmpty:'Add tracks from the library with “+ Montage”.',monStart:'Start (s)',monEnd:'End (s)',monX:'Crossfade (s)',monTotal:'Total length',monPrev:'▶ Preview',monStop:'■ Stop',monUse:'Use for the show',monWav:'Export as WAV',monCredits:'Copy credits',monCopied:'Credits copied',monOk:'Montage applied',monMissing:'Track not found in the library',
-  monWarn:l=>'Licence not verified for: '+l+'. Continue anyway?',musSheet:'Music and licences',musAdded:n=>n+' tracks added',musDecodeErr:'Unreadable audio file: ',musSaved:'Track saved',musDeleted:'Track removed',musDelConfirm:'Remove this track from the library?',musDelete:'Remove'});
+  monWarn:l=>'Licence not verified for: '+l+'. Continue anyway?',musSheet:'Music and licences',musAdded:n=>n+' tracks added',musDecodeErr:'Unreadable audio file: ',musSaved:'Track saved',musDeleted:'Track removed',musDelConfirm:'Remove this track from the library?',musDelete:'Remove',musSelAll:'Select all',musSelNone:'Deselect all',musAddSel:n=>'Add selection to the montage ('+n+')',musAddAll:'Add all to the montage',musInMont:n=>n+' track(s) added to the montage',musMontCnt:n=>'Montage ('+n+')',musMontOpen:'View montage'});
 
+const MSEL=new Set();
+const addToMont=ids=>{let n=0;ids.forEach(id=>{const tk=TRK.find(x=>x.id===id);if(!tk)return;PR.montage.push({tid:id,s:0,e:Math.floor((tk.dur||10)*10)/10,x:PR.montage.length?3:0});n++});if(n){autosave();toast(t('musInMont',n))}return n};
 const TRK=[],BUF={};let musStore=true,musTab='lib',PVID=null,PVSRC=null;
 PR.montage=PR.montage||[];
 const MDB={db:null,
@@ -1426,22 +1428,37 @@ async function pvPlay(id,buf,name){pvStop();const a=ac(),s=a.createBufferSource(
 
 /* --- bibliothèque --- */
 function musRender(){
-  const tabs=$('#musTabs');tabs.innerHTML='';[['lib','musLib'],['mont','musMont']].forEach(([k,l])=>{const b=document.createElement('button');b.textContent=t(l);b.className=musTab===k?'on':'';b.onclick=()=>{musTab=k;musRender()};tabs.appendChild(b)});
+  const tabs=$('#musTabs');tabs.innerHTML='';[['lib','musLib'],['mont','musMont']].forEach(([k,l])=>{const b=document.createElement('button');b.textContent=k==='mont'?t('musMontCnt',PR.montage.length):t(l);b.className=musTab===k?'on':'';b.onclick=()=>{musTab=k;musRender()};tabs.appendChild(b)});
   $('#musLibBox').style.display=musTab==='lib'?'':'none';$('#musMontBox').style.display=musTab==='mont'?'':'none';
   $('#musQ').placeholder=t('musSearch');$('#musHelp').textContent=t('musHelp')+(musStore?'':' '+t('musNoStore'));
   if(musTab==='lib'){
     const q=$('#musQ').value.trim().toLowerCase(),L=TRK.filter(x=>!q||[x.title,x.artist,x.tags,x.src].join(' ').toLowerCase().includes(q));
-    let h='<table><thead><tr>'+['musTitleCol','musArtist','musDur','musBpm','musLic',''].map(k=>'<th>'+(k?esc(t(k)):'')+'</th>').join('')+'</tr></thead><tbody>';
-    L.forEach(x=>{h+='<tr><td>'+esc(x.title)+'</td><td>'+esc(x.artist||'')+'</td><td>'+mmss(x.dur||0)+'</td><td>'+(x.bpm||'')+'</td><td>'+(x.ok?'<span class="pill" style="background:#12301c;color:#4ade80">✓ '+esc(t('musLicOk'))+'</span>':'<span class="pill" style="background:#3a2a10;color:#ffb347">⚠ '+esc(t('musLicNo'))+'</span>')+'</td><td style="white-space:nowrap">'
+    [...MSEL].forEach(id=>{if(!TRK.some(x=>x.id===id))MSEL.delete(id)});
+    const allOn=L.length>0&&L.every(x=>MSEL.has(x.id));
+    let h='<div class="row" style="margin-bottom:8px;flex-wrap:wrap;gap:6px"><button class="btn sm" id="musSelAll">'+esc(t(allOn?'musSelNone':'musSelAll'))+'</button><button class="btn sm pri" id="musAddSel"'+(MSEL.size?'':' disabled')+'>'+esc(t('musAddSel',MSEL.size))+'</button><button class="btn sm" id="musAddAll"'+(TRK.length?'':' disabled')+'>'+esc(t('musAddAll'))+'</button><span class="sp"></span><button class="btn sm" id="musGoMont">'+esc(t('musMontOpen'))+'</button></div>'
+    +'<table><thead><tr><th style="width:28px"><input type="checkbox" id="musChkAll"'+(allOn?' checked':'')+'></th>'+['musTitleCol','musArtist','musDur','musBpm','musLic',''].map(k=>'<th>'+(k?esc(t(k)):'')+'</th>').join('')+'</tr></thead><tbody>';
+    L.forEach(x=>{h+='<tr><td><input type="checkbox" class="musChk" data-id="'+x.id+'"'+(MSEL.has(x.id)?' checked':'')+'></td><td>'+esc(x.title)+'</td><td>'+esc(x.artist||'')+'</td><td>'+mmss(x.dur||0)+'</td><td>'+(x.bpm||'')+'</td><td>'+(x.ok?'<span class="pill" style="background:#12301c;color:#4ade80">✓ '+esc(t('musLicOk'))+'</span>':'<span class="pill" style="background:#3a2a10;color:#ffb347">⚠ '+esc(t('musLicNo'))+'</span>')+'</td><td style="white-space:nowrap">'
       +'<button class="btn sm" data-a="pv" data-id="'+x.id+'">'+(PVID===x.id?'■':'▶')+'</button> <button class="btn sm" data-a="mo" data-id="'+x.id+'">'+esc(t('musToMont'))+'</button> <button class="btn sm" data-a="use" data-id="'+x.id+'">'+esc(t('musUse'))+'</button> <button class="btn sm" data-a="ed" data-id="'+x.id+'">'+esc(t('musEdit'))+'</button></td></tr>'});
     h+='</tbody></table>'+(L.length?'':'<p style="color:var(--mut)">'+esc(t('musNone'))+'</p>');$('#musTable').innerHTML=h;
-    $$('#musTable button').forEach(b=>b.onclick=()=>musAct(b.dataset.a,b.dataset.id));
-  }else monRender();
+    $$('#musTable button[data-a]').forEach(b=>b.onclick=()=>musAct(b.dataset.a,b.dataset.id));
+    $$('#musTable .musChk').forEach(c=>c.onchange=()=>{c.checked?MSEL.add(c.dataset.id):MSEL.delete(c.dataset.id);musRender()});
+    const toggleAll=()=>{if(allOn)L.forEach(x=>MSEL.delete(x.id));else L.forEach(x=>MSEL.add(x.id));musRender()};
+    $('#musSelAll').onclick=toggleAll;$('#musChkAll').onchange=toggleAll;
+    $('#musAddSel').onclick=()=>{addToMont(TRK.filter(x=>MSEL.has(x.id)).map(x=>x.id));MSEL.clear();musRender()};
+    $('#musAddAll').onclick=()=>{addToMont(TRK.map(x=>x.id));musRender()};
+    $('#musGoMont').onclick=()=>{musTab='mont';musRender()};
+  }else{
+    let bar=$('#musMontBar');if(!bar){bar=document.createElement('div');bar.id='musMontBar';bar.className='row';bar.style.cssText='margin-bottom:10px;flex-wrap:wrap;gap:6px';$('#musMontBox').insertBefore(bar,$('#musMont'))}
+    bar.innerHTML='<button class="btn sm" id="monAddAll"'+(TRK.length?'':' disabled')+'>'+esc(t('musAddAll'))+'</button><select id="monAddOne" style="max-width:300px"><option value="">'+esc(t('musToMont'))+'…</option>'+TRK.map(x=>'<option value="'+x.id+'">'+esc(trkLabel(x))+'</option>').join('')+'</select>';
+    $('#monAddAll').onclick=()=>{addToMont(TRK.map(x=>x.id));musRender()};
+    $('#monAddOne').onchange=e=>{const v=e.target.value;if(v){addToMont([v]);musRender()}};
+    monRender();
+  }
 }
 async function musAct(a,id){
   const tk=TRK.find(x=>x.id===id);if(!tk)return;
   if(a==='pv'){if(PVID===id){pvStop();musRender();return}try{await pvPlay(id,await trkBuf(tk));musRender()}catch(e){toast(t('musDecodeErr')+tk.name)}}
-  else if(a==='mo'){PR.montage.push({tid:id,s:0,e:Math.floor((tk.dur||10)*10)/10,x:PR.montage.length?3:0});autosave();musTab='mont';musRender()}
+  else if(a==='mo'){addToMont([id]);musRender()}
   else if(a==='use'){const b=await trkBuf(tk);if(!tk.ok&&!await askConfirm(t('monWarn',tk.title)))return;useBuffer(b,trkLabel(tk));$('#mus').close()}
   else if(a==='ed')editTrk(tk);
 }
