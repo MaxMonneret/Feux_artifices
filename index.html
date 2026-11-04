@@ -144,6 +144,7 @@ th{color:var(--mut);font-weight:600;font-size:12px;text-transform:uppercase;lett
   <button class="btn sm" id="bMus" data-i="music2"></button>
   <button class="btn sm" id="bCat" data-i="catalog"></button>
   <button class="btn sm" id="bPlan" data-i="plan"></button>
+  <button class="btn sm" id="bCobra" data-i="cobra"></button>
   <button class="btn sm" id="bSheet" data-i="sheet"></button>
   <button class="btn sm pri" id="bExport" data-i="export"></button>
   <select class="btn sm" id="bLang" aria-label="Langue"><option value="fr">Français</option><option value="en">English</option></select>
@@ -1749,6 +1750,91 @@ monRender=function(){
   box.insertAdjacentHTML('afterbegin','<div class="note" style="margin:0 0 14px"><b>'+esc(t('amTitle'))+'</b><div class="row" style="margin-top:8px;flex-wrap:wrap;gap:10px"><label>'+esc(t('amDur'))+' <input type="number" id="amDur" min="30" max="1800" step="5" value="'+(+(box.dataset.amDur||def))+'" style="width:84px"></label><label>'+esc(t('amArc'))+' <select id="amArc" style="width:auto"><option value="up">'+esc(t('amArcUp'))+'</option><option value="flat">'+esc(t('amArcFlat'))+'</option><option value="down">'+esc(t('amArcDown'))+'</option></select></label><label>'+esc(t('amX'))+' <input type="number" id="amX" min="0" max="8" step="0.5" value="4" style="width:70px"></label><button class="btn pri" id="amGo">'+esc(t('amGo'))+'</button></div></div>');
   $('#amGo').onclick=async()=>{if(!TRK.length){toast(t('amNone'));return}if(PR.montage.length&&!await askConfirm(t('amConfirm')))return;box.dataset.amDur=$('#amDur').value;await autoMontage({dur:+$('#amDur').value||def,arc:$('#amArc').value,x:+$('#amX').value||0});toast(t('amDone'));monRender()};
 };
+
+/* =====================================================================
+   16f. EXPORT POUR LA TABLE DE TIR COBRA 18R2 (script cobra.csv + plan de câblage + contrôles)
+   Format : guide officiel « COBRA 18R2 – Creating and Uploading Automated Scripts » (firmware 2.x à 5.x).
+   Document de PLANIFICATION : test à blanc obligatoire, sans artifice, avant tout tir réel.
+   ===================================================================== */
+Object.assign(I.fr,{cobra:'Table de tir',cobTitle:'Export pour table de tir Cobra 18R2',
+  cobDisc:'Fichier généré d’après le guide officiel de la Cobra 18R2 (firmware 2.x à 5.x). Si votre firmware est 6 ou plus, le format peut différer : ne chargez pas ce fichier sans l’avoir vérifié. Faites toujours un test à blanc, sans artifice, canal par canal, avant tout tir réel. Ce document ne remplace pas la mise en œuvre par un artificier agréé.',
+  cobBtn:'Bouton de déclenchement',cobTrigCh:'Canal de déclenchement (vide = tous)',cobConfirm:'Bouton de confirmation (facultatif)',cobReturn:'Canal de retour (facultatif)',cobPer:'Cues par module',cobFirst:'Premier module',cobOffset:'Décalage du début (s)',
+  cobSummary:(e,m,d)=>e+' événements · '+m+' modules · durée '+d,cobChecks:'Contrôles',cobOkMsg:'Aucun problème détecté.',
+  cobE1800:n=>'Trop d’événements : '+n+' (maximum 1 800 pour tous les scripts de la 18R2).',cobDup:'Deux tirs sur la même adresse (module, cue).',cobNeg:s=>'Des tirs partaient avant le début : tout le spectacle est décalé de '+s+' s.',
+  cobTwo:'Plus de 2 canaux dans la même fenêtre de 0,4 s : accepté seulement par les firmwares 3.0 et plus (le 2.1.x est limité à 2 canaux).',cobMod:n=>n+' modules nécessaires : vérifiez que vos modules sont tous numérotés différemment (1 à 99).',cobUnref:n=>n+' tirs sans produit du catalogue (descriptions génériques).',
+  cobRound:'Les heures sont arrondies au dixième de seconde (résolution de la 18R2).',
+  cobDlScript:'Télécharger cobra.csv',cobDlWire:'Plan de câblage (CSV)',cobWire:'Plan de câblage',cobModule:'Module',cobCue:'Cue',cobTime:'Heure (s)',cobShow:'Spectacle',
+  cobCheckList:'Liste de contrôle avant tir',cobL1:'Test à blanc : tous les canaux testés sans artifice',cobL2:'Fichier nommé cobra.csv, copié sur la clé USB, chargé (LED toutes vertes)',cobL3:'Câblage vérifié module par module d’après le plan',cobL4:'Zone sécurisée et accord de l’artificier responsable',cobL5:'Musique et script déclenchés ensemble (heure 0 = appui sur le bouton)',
+  cobFw:'Firmware : si votre Cobra est en version 6 ou plus, envoyez-moi un script d’exemple exporté par votre logiciel avant d’utiliser ce fichier.'});
+Object.assign(I.en,{cobra:'Firing table',cobTitle:'Export for the Cobra 18R2 firing table',
+  cobDisc:'File generated from the official Cobra 18R2 guide (firmware 2.x to 5.x). If your firmware is 6 or later, the format may differ: do not load this file without checking it. Always run a dry test, without pyrotechnics, channel by channel, before any real firing. This document does not replace operation by a licensed pyrotechnician.',
+  cobBtn:'Trigger button',cobTrigCh:'Trigger channel (empty = all)',cobConfirm:'Confirmation button (optional)',cobReturn:'Return channel (optional)',cobPer:'Cues per module',cobFirst:'First module',cobOffset:'Start offset (s)',
+  cobSummary:(e,m,d)=>e+' events · '+m+' modules · length '+d,cobChecks:'Checks',cobOkMsg:'No problem detected.',
+  cobE1800:n=>'Too many events: '+n+' (maximum 1,800 across all 18R2 scripts).',cobDup:'Two shots on the same address (module, cue).',cobNeg:s=>'Some shots started before the beginning: the whole show is shifted by '+s+' s.',
+  cobTwo:'More than 2 channels in the same 0.4 s window: only accepted by firmware 3.0 and later (2.1.x is limited to 2 channels).',cobMod:n=>n+' modules needed: make sure every module has a different number (1 to 99).',cobUnref:n=>n+' shots without a catalog product (generic descriptions).',
+  cobRound:'Times are rounded to a tenth of a second (18R2 resolution).',
+  cobDlScript:'Download cobra.csv',cobDlWire:'Wiring plan (CSV)',cobWire:'Wiring plan',cobModule:'Module',cobCue:'Cue',cobTime:'Time (s)',cobShow:'Show',
+  cobCheckList:'Pre-firing checklist',cobL1:'Dry test: all channels tested without pyrotechnics',cobL2:'File named cobra.csv, copied to the USB stick, loaded (all LEDs green)',cobL3:'Wiring checked module by module against the plan',cobL4:'Area secured and approval from the responsible pyrotechnician',cobL5:'Music and script started together (time 0 = button press)',
+  cobFw:'Firmware: if your Cobra runs version 6 or later, send me a sample script exported by your software before using this file.'});
+
+const COB={btn:'1',trigCh:'',conf:'',ret:'',per:18,first:1,off:0};
+function cobAssign(){
+  const per=clamp(+COB.per||18,1,72),mod0=clamp(+COB.first||1,1,99),L=PR.cues.slice().sort((a,b)=>launchT(a)-launchT(b)||a.poste-b.poste),by={};
+  L.forEach(c=>{(by[c.poste]=by[c.poste]||[]).push(c)});let next=mod0;const rows=[],mods=[];
+  Object.keys(by).map(Number).sort((a,b)=>a-b).forEach(p=>{const arr=by[p],nm=Math.ceil(arr.length/per),base=next;next+=nm;arr.forEach((c,k)=>rows.push({c,mod:base+Math.floor(k/per),cue:k%per+1,poste:p}));mods.push({poste:p,from:base,to:base+nm-1,count:arr.length})});
+  return{rows,mods,modTotal:next-mod0};
+}
+const ascii=s=>String(s).normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^\x20-\x7E]/g,'').replace(/[,;"\\]/g,' ').replace(/\s+/g,' ').trim();
+function cobTime(t){const v=Math.max(0,Math.round(t*10)),h=Math.floor(v/36000),m=Math.floor(v%36000/600),s=Math.floor(v%600/10),d=v%10;return h+':'+String(m).padStart(2,'0')+':'+String(s).padStart(2,'0')+'.'+d+'s'}
+function cobEvents(){
+  const A=cobAssign(),prodOf=c=>c.prod&&CAT.find(x=>x.id===c.prod),notes=[],tmin=Math.min(0,...A.rows.map(r=>launchT(r.c)));
+  const shift=-tmin+ (+COB.off||0),ev=A.rows.map(r=>{const c=r.c,p=prodOf(c),name=ascii((p?(p.ref?p.ref+' ':'')+p.name:t('fx_'+c.fx)+' '+c.cal+'mm')+' '+POSTES[c.poste].n).slice(0,62);return{t:Math.round((launchT(c)+shift)*10)/10,mod:r.mod,cue:r.cue,name,c,poste:r.poste,unref:!p}}).sort((a,b)=>a.t-b.t||a.mod-b.mod||a.cue-b.cue);
+  return{ev,A,shift:-tmin};
+}
+function cobChecks(E){
+  const out=[],ev=E.ev,keys=new Set();let dup=false;ev.forEach(e=>{const k=e.mod+'/'+e.cue;if(keys.has(k))dup=true;keys.add(k)});
+  if(ev.length>1800)out.push(['err',t('cobE1800',ev.length)]);if(dup)out.push(['err',t('cobDup')]);
+  if(E.shift>0)out.push(['warn',t('cobNeg',E.shift.toFixed(1))]);
+  let two=false;for(let i=0;i<ev.length&&!two;i++){const chs=new Set([ev[i].mod]);for(let j=i+1;j<ev.length&&ev[j].t-ev[i].t<=.4;j++)chs.add(ev[j].mod);if(chs.size>2)two=true}
+  if(two)out.push(['warn',t('cobTwo')]);
+  if(E.A.modTotal>8)out.push(['info',t('cobMod',E.A.modTotal)]);
+  const un=ev.filter(e=>e.unref).length;if(un)out.push(['info',t('cobUnref',un)]);out.push(['info',t('cobRound')]);
+  return out;
+}
+function cobCsv(){
+  const E=cobEvents(),tc=COB.trigCh===''?'':String(clamp(+COB.trigCh||1,1,99)),cf=COB.conf===''?'':String(COB.conf),rc=COB.ret===''?'':String(clamp(+COB.ret||1,1,99));
+  const rows=['#Trigger Channel,#Trigger Button,#Confirmation Button,#Return Channel',[tc,COB.btn,cf,rc].join(','),'#Event Time,#Channel,#Cue,#Description'];
+  E.ev.forEach(e=>rows.push([cobTime(e.t),e.mod,e.cue,e.name].join(',')));
+  return rows.join('\r\n')+'\r\n';
+}
+function cobWireCsv(){const E=cobEvents(),rows=[['Module','Cue','Poste','Heure (s)','Effet','Calibre (mm)','Produit']];
+  E.ev.slice().sort((a,b)=>a.mod-b.mod||a.cue-b.cue).forEach(e=>{const p=e.c.prod&&CAT.find(x=>x.id===e.c.prod);rows.push([e.mod,e.cue,POSTES[e.poste].n,e.t.toFixed(1),t('fx_'+e.c.fx),e.c.cal,p?(p.ref||p.name):''])});
+  return '\ufeff'+rows.map(r=>r.map(csvCell).join(';')).join('\r\n')}
+function openCobra(){
+  const E=cobEvents(),chk=cobChecks(E),dur=E.ev.length?E.ev[E.ev.length-1].t:0;
+  const fld=(k,lab,html)=>'<label style="display:block"><span style="font-size:12px;color:var(--mut)">'+esc(t(lab))+'</span>'+html+'</label>';
+  const btnOpts=['1','2','3','4','5','6','7','8','9','10','11','12','13','14','15','16','17','18','AUTO-FIRE'].map(v=>'<option'+(COB.btn===v?' selected':'')+'>'+v+'</option>').join('');
+  const confOpts='<option value=""></option>'+['1','2','3','4','5','6','7','8','9','10','11','12','13','14','15','16','17','18','AUTO-FIRE'].map(v=>'<option'+(COB.conf===v?' selected':'')+'>'+v+'</option>').join('');
+  let h='<p class="disc">'+esc(t('cobDisc'))+'</p><p class="note" style="margin-top:0">'+esc(t('cobFw'))+'</p>';
+  h+='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px 14px;margin-bottom:12px">'
+    +fld('btn','cobBtn','<select id="cbBtn">'+btnOpts+'</select>')+fld('tc','cobTrigCh','<input type="number" id="cbTc" min="1" max="99" value="'+esc(COB.trigCh)+'">')+fld('cf','cobConfirm','<select id="cbCf">'+confOpts+'</select>')+fld('rc','cobReturn','<input type="number" id="cbRc" min="1" max="99" value="'+esc(COB.ret)+'">')
+    +fld('per','cobPer','<input type="number" id="cbPer" min="1" max="72" value="'+COB.per+'">')+fld('first','cobFirst','<input type="number" id="cbFirst" min="1" max="99" value="'+COB.first+'">')+fld('off','cobOffset','<input type="number" id="cbOff" min="0" max="600" step="0.1" value="'+COB.off+'">')+'</div>';
+  h+='<p><b>'+esc(t('cobSummary',E.ev.length,E.A.modTotal,mmss(dur,1)))+'</b></p><h3 style="margin:12px 0 6px">'+esc(t('cobChecks'))+'</h3>';
+  h+=chk.length?chk.map(c=>'<div style="padding:4px 0;color:'+(c[0]==='err'?'#ff6b78':c[0]==='warn'?'#ffb347':'var(--mut)')+'">'+(c[0]==='err'?'✖ ':c[0]==='warn'?'⚠ ':'ℹ ')+esc(c[1])+'</div>').join(''):'<div>'+esc(t('cobOkMsg'))+'</div>';
+  h+='<div class="row" style="margin:14px 0;flex-wrap:wrap"><button class="btn pri" id="cbDl">'+esc(t('cobDlScript'))+'</button><button class="btn" id="cbWire">'+esc(t('cobDlWire'))+'</button></div>';
+  h+='<h3 style="margin:14px 0 6px">'+esc(t('cobWire'))+'</h3><table><thead><tr>'+['cobModule','cobCue','shPost','cobTime','shFx','shCal'].map(k=>'<th>'+esc(t(k))+'</th>').join('')+'</tr></thead><tbody>'
+    +E.ev.slice().sort((a,b)=>a.mod-b.mod||a.cue-b.cue).map(e=>'<tr><td>'+e.mod+'</td><td>'+e.cue+'</td><td>'+POSTES[e.poste].n+'</td><td>'+e.t.toFixed(1)+'</td><td>'+esc(t('fx_'+e.c.fx))+'</td><td>'+e.c.cal+' mm</td></tr>').join('')+'</tbody></table>';
+  h+='<h3 style="margin:16px 0 6px">'+esc(t('cobCheckList'))+'</h3>'+['cobL1','cobL2','cobL3','cobL4','cobL5'].map(k=>'<div style="padding:3px 0">☐ '+esc(t(k))+'</div>').join('');
+  SHEETMODE='cobra';$('#sheetTitle').textContent=t('cobTitle')+' — '+(PR.name||'—');$('#sheetBody').innerHTML=h;
+  const re=()=>openCobra();
+  $('#cbBtn').onchange=e=>{COB.btn=e.target.value;re()};$('#cbTc').onchange=e=>{COB.trigCh=e.target.value;re()};$('#cbCf').onchange=e=>{COB.conf=e.target.value;re()};$('#cbRc').onchange=e=>{COB.ret=e.target.value;re()};
+  $('#cbPer').onchange=e=>{COB.per=clamp(+e.target.value||18,1,72);re()};$('#cbFirst').onchange=e=>{COB.first=clamp(+e.target.value||1,1,99);re()};$('#cbOff').onchange=e=>{COB.off=clamp(+e.target.value||0,0,600);re()};
+  $('#cbDl').onclick=()=>{if(chk.some(c=>c[0]==='err')){toast(t('cobDup'));return}download('cobra.csv',new Blob([cobCsv()],{type:'text/csv'}))};
+  $('#cbWire').onclick=()=>download(slug(PR.name)+'-plan-de-cablage.csv',new Blob([cobWireCsv()],{type:'text/csv'}));
+  if(!$('#sheet').open)$('#sheet').showModal();
+}
+const _shCsv3=$('#shCsv').onclick;$('#shCsv').onclick=()=>SHEETMODE==='cobra'?download(slug(PR.name)+'-plan-de-cablage.csv',new Blob([cobWireCsv()],{type:'text/csv'})):_shCsv3();
+$('#bCobra').onclick=openCobra;
 
 /* =====================================================================
    17. DÉMARRAGE
