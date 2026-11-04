@@ -147,6 +147,7 @@ th{color:var(--mut);font-weight:600;font-size:12px;text-transform:uppercase;lett
   <button class="btn sm" id="bCat" data-i="catalog"></button>
   <button class="btn sm" id="bPlan" data-i="plan"></button>
   <button class="btn sm" id="bCobra" data-i="cobra"></button>
+  <button class="btn sm" id="bInst" data-i="inst"></button>
   <button class="btn sm" id="bSheet" data-i="sheet"></button>
   <button class="btn sm pri" id="bExport" data-i="export"></button>
   <select class="btn sm" id="bLang" aria-label="Langue"><option value="fr">Français</option><option value="en">English</option></select>
@@ -337,7 +338,7 @@ const FXLIST=Object.keys(FX),CALS=[30,50,75,100,150];
 const hex=h=>{const n=parseInt(h.slice(1),16);return[(n>>16)&255,(n>>8)&255,n&255]};
 const mmss=(s,d=0)=>{s=Math.max(0,s);const m=Math.floor(s/60),x=s-m*60;return m+':'+x.toFixed(d).padStart(d?d+3:2,'0')};
 const same=(a,b)=>a[0]===b[0]&&a[1]===b[1]&&a[2]===b[2];
-let PR={name:'',scene:'ville',wind:.15,reflect:true,cues:[],bpm:120,aOff:0,mv:80,sv:80,audioName:'',bgImg:'',bgDark:.55,bgZoom:1,bgX:0,bgY:0,bgLine:.9,bgWater:false,showPostes:false,siteW:60,posteAz:[0,0,0,0,0,0],hmax:{30:40,50:70,75:100,100:130,150:180},metric:false,tubeGap:.5,viewD:150,fov:60,radK:.45,showLabels:false,showRuler:true};
+let PR={name:'',scene:'ville',wind:.15,reflect:true,cues:[],bpm:120,aOff:0,mv:80,sv:80,audioName:'',bgImg:'',bgDark:.55,bgZoom:1,bgX:0,bgY:0,bgLine:.9,bgWater:false,showPostes:false,siteW:60,posteAz:[0,0,0,0,0,0],hmax:{30:40,50:70,75:100,100:130,150:180},metric:false,tubeGap:.5,viewD:150,fov:60,radK:.45,showLabels:false,showRuler:true,cableM:[0,0,0,0,0,0],chk:{}};
 let BGIMG=null;
 function setBgImage(src,cb){if(!src){BGIMG=null;cb&&cb();return}const im=new Image();im.onload=()=>{BGIMG=im;cb&&cb()};im.src=src}
 let DEF={fx:'peony',c1:'#ff3b3b',c2:'#ffc94a',cal:75,h:.7,ang:0,cnt:1,dur:8,poste:2};
@@ -1128,11 +1129,11 @@ function clearAudioQuiet(){stopAudio();AU.buf=null;AU.peaks=null;AU.env=null;BEA
    14. PROJET : enregistrer, ouvrir, sauvegarde automatique
    ===================================================================== */
 const KEYP='pyro_composer_v1';
-const projJSON=()=>JSON.stringify({app:'pyro-composer',v:1,postes:POSTES.map(p=>p.x),siteW:PR.siteW,posteAz:PR.posteAz,viewD:PR.viewD,fov:PR.fov,radK:PR.radK,showLabels:PR.showLabels,showRuler:PR.showRuler,hmax:PR.hmax,metric:PR.metric,tubeGap:PR.tubeGap,bgImg:PR.bgImg,bgDark:PR.bgDark,bgZoom:PR.bgZoom,bgX:PR.bgX,bgY:PR.bgY,bgLine:PR.bgLine,bgWater:PR.bgWater,showPostes:PR.showPostes,name:PR.name,scene:PR.scene,wind:PR.wind,reflect:PR.reflect,bpm:PR.bpm,aOff:PR.aOff,mv:PR.mv,sv:PR.sv,audioName:PR.audioName,cues:PR.cues,montage:PR.montage||[],catalog:(typeof usedCatalog==='function'?usedCatalog():[])});
+const projJSON=()=>JSON.stringify({app:'pyro-composer',v:1,postes:POSTES.map(p=>p.x),cableM:PR.cableM,chk:PR.chk,siteW:PR.siteW,posteAz:PR.posteAz,viewD:PR.viewD,fov:PR.fov,radK:PR.radK,showLabels:PR.showLabels,showRuler:PR.showRuler,hmax:PR.hmax,metric:PR.metric,tubeGap:PR.tubeGap,bgImg:PR.bgImg,bgDark:PR.bgDark,bgZoom:PR.bgZoom,bgX:PR.bgX,bgY:PR.bgY,bgLine:PR.bgLine,bgWater:PR.bgWater,showPostes:PR.showPostes,name:PR.name,scene:PR.scene,wind:PR.wind,reflect:PR.reflect,bpm:PR.bpm,aOff:PR.aOff,mv:PR.mv,sv:PR.sv,audioName:PR.audioName,cues:PR.cues,montage:PR.montage||[],catalog:(typeof usedCatalog==='function'?usedCatalog():[])});
 function autosave(){LS.set(KEYP,projJSON())}
 function loadProj(o){
   if(!o||!Array.isArray(o.cues))throw new Error('bad');
-  PR.siteW=clamp(+o.siteW||60,5,500);PR.posteAz=Array.isArray(o.posteAz)?o.posteAz.slice(0,6).map(x=>+x||0):[0,0,0,0,0,0];PR.hmax=Object.assign({30:40,50:70,75:100,100:130,150:180},o.hmax||{});PR.metric=!!o.metric;PR.viewD=clamp(+o.viewD||150,10,2000);PR.fov=clamp(+o.fov||60,20,120);PR.radK=clamp(+o.radK||.45,.1,1.5);PR.showLabels=!!o.showLabels;PR.showRuler=o.showRuler!==false;PR.tubeGap=clamp(+o.tubeGap||.5,.1,5);
+  PR.cableM=Array.isArray(o.cableM)?o.cableM.slice(0,6).map(x=>Math.max(0,+x||0)):[0,0,0,0,0,0];PR.chk=(o.chk&&typeof o.chk==='object'&&!Array.isArray(o.chk))?Object.fromEntries(Object.entries(o.chk).filter(([k,v])=>v===true&&k.length<40)):{};PR.siteW=clamp(+o.siteW||60,5,500);PR.posteAz=Array.isArray(o.posteAz)?o.posteAz.slice(0,6).map(x=>+x||0):[0,0,0,0,0,0];PR.hmax=Object.assign({30:40,50:70,75:100,100:130,150:180},o.hmax||{});PR.metric=!!o.metric;PR.viewD=clamp(+o.viewD||150,10,2000);PR.fov=clamp(+o.fov||60,20,120);PR.radK=clamp(+o.radK||.45,.1,1.5);PR.showLabels=!!o.showLabels;PR.showRuler=o.showRuler!==false;PR.tubeGap=clamp(+o.tubeGap||.5,.1,5);
   PR.bgImg=typeof o.bgImg==='string'&&o.bgImg.startsWith('data:image/')?o.bgImg:'';PR.bgDark=o.bgDark==null?.55:clamp(+o.bgDark,0,.95);PR.bgZoom=clamp(+o.bgZoom||1,1,2.5);PR.bgX=clamp(+o.bgX||0,-1,1);PR.bgY=clamp(+o.bgY||0,-1,1);PR.bgLine=clamp(+o.bgLine||.9,.5,.98);PR.bgWater=!!o.bgWater;PR.showPostes=!!o.showPostes;
   if(Array.isArray(o.postes))o.postes.forEach((x,i)=>{if(POSTES[i])POSTES[i].x=clamp(+x||POSTES[i].x,.03,.97)});else POSTES.forEach((p,i)=>p.x=[.10,.26,.42,.58,.74,.90][i]);
   PR.name=String(o.name||'').slice(0,60);PR.scene=SCENES.includes(o.scene)?o.scene:'ville';if(PR.scene==='photo'&&!PR.bgImg)PR.scene='ville';PR.wind=clamp(+o.wind||0,-1,1);PR.reflect=o.reflect!==false;PR.bpm=+o.bpm||120;PR.aOff=+o.aOff||0;PR.mv=o.mv==null?80:+o.mv;PR.sv=o.sv==null?80:+o.sv;
@@ -2036,6 +2037,55 @@ function openCobra(){
 }
 const _shCsv3=$('#shCsv').onclick;$('#shCsv').onclick=()=>SHEETMODE==='cobra'?download(slug(PR.name)+'-plan-de-cablage.csv',new Blob([cobWireCsv()],{type:'text/csv'})):_shCsv3();
 $('#bCobra').onclick=openCobra;
+
+/* =====================================================================
+   INSTALLATION : matériel et lignes par poste, câbles, liste de contrôle (ne calcule aucune distance de sécurité)
+   ===================================================================== */
+Object.assign(I.fr,{inst:'Installation',instTitle:'Plan d’installation',instDisc:'Document de préparation : à valider par l’artificier responsable. Les distances de sécurité, les autorisations et les consignes des fabricants ne sont pas calculées ici.',
+  instSyn:'Synthèse par poste',instCable:'Câble (m)',instLines:'Lignes (module.cue)',instMat:'Matériel par poste',instQty:'Qté',instProd:'Produit / effet',instNone:'Aucun tir à installer.',instTot:(n,m,c)=>n+' tirs · '+m+' modules · '+c+' m de câble saisis',
+  instTubes:'Tubes / pièces par calibre',instChkG:'Liste de contrôle générale',instChkP:'Contrôle du poste',instCsv:'CSV installation',
+  instG1:'Plan de tir validé par l’artificier responsable',instG2:'Produits contrôlés : références, état, dates, conditionnement',instG3:'Moyens de secours et d’extinction en place',instG4:'Test à blanc de toutes les lignes (sans artifice)',instG5:'Câblage vérifié module par module d’après le plan',instG6:'Zone sécurisée, public et équipe informés',instG7:'Alimentation chargée, matériel de rechange disponible',instG8:'Script copié et sauvegardé, musique prête',
+  instP1:'Tubes / supports installés et calés',instP2:'Produits chargés et reliés aux bonnes lignes',instP3:'Câble déroulé et protégé',instP4:'Protection du poste contrôlée'});
+Object.assign(I.en,{inst:'Setup',instTitle:'Installation plan',instDisc:'Preparation document: to be validated by the responsible pyrotechnician. Safety distances, permits and manufacturer instructions are not calculated here.',
+  instSyn:'Summary by position',instCable:'Cable (m)',instLines:'Lines (module.cue)',instMat:'Equipment by position',instQty:'Qty',instProd:'Product / effect',instNone:'No shot to set up.',instTot:(n,m,c)=>n+' shots · '+m+' modules · '+c+' m of cable entered',
+  instTubes:'Tubes / pieces by calibre',instChkG:'General checklist',instChkP:'Position check',instCsv:'Setup CSV',
+  instG1:'Firing plan validated by the responsible pyrotechnician',instG2:'Products checked: references, condition, dates, packaging',instG3:'Emergency and extinguishing means in place',instG4:'Dry test of all lines (no pyrotechnics)',instG5:'Wiring checked module by module against the plan',instG6:'Area secured, public and crew informed',instG7:'Power charged, spare equipment available',instG8:'Script copied and backed up, music ready',
+  instP1:'Tubes / racks installed and wedged',instP2:'Products loaded and connected to the right lines',instP3:'Cable laid out and protected',instP4:'Position protection checked'});
+function instGroups(){
+  const A=cobAssign(),by={};
+  A.rows.forEach(r=>{const c=r.c,p=c.prod&&CAT.find(x=>x.id===c.prod),key=c.fx+'|'+c.cal+'|'+(p?p.id:''),g=((by[r.poste]=by[r.poste]||{})[key]=(by[r.poste][key]||{fx:c.fx,cal:c.cal,p,lines:[],n:0}));g.n++;g.lines.push(r.mod+'.'+r.cue)});
+  return{A,by};
+}
+function instCsv(){
+  const{A,by}=instGroups(),rows=[['Poste','Modules','Produit / effet','Reference','Calibre (mm)','Quantite','Lignes (module.cue)','Cable poste (m)']];
+  A.mods.forEach(m=>Object.values(by[m.poste]||{}).sort((a,b)=>b.cal-a.cal||b.n-a.n).forEach(g=>rows.push([POSTES[m.poste].n,m.from===m.to?m.from:m.from+'-'+m.to,g.p?g.p.name:t('fx_'+g.fx),g.p?(g.p.ref||''):'',g.cal,g.n,g.lines.join(' '),(PR.cableM&&PR.cableM[m.poste])||0])));
+  return '\ufeff'+rows.map(r=>r.map(csvCell).join(';')).join('\r\n');
+}
+function openInstall(){
+  const{A,by}=instGroups();PR.cableM=PR.cableM||[0,0,0,0,0,0];PR.chk=PR.chk||{};
+  const ck=(k,label)=>'<label class="chk" style="margin:4px 0"><input type="checkbox" class="instC" data-k="'+k+'"'+(PR.chk[k]?' checked':'')+'><span>'+esc(label)+'</span></label>';
+  let h='<p class="disc">'+esc(t('instDisc'))+'</p>';
+  if(!A.rows.length){h+='<p>'+esc(t('instNone'))+'</p>'}
+  else{
+    const cabTot=()=>PR.cableM.reduce((q,v)=>q+(+v||0),0),tubes={};A.rows.forEach(r=>tubes[r.c.cal]=(tubes[r.c.cal]||0)+1);
+    h+='<p><b id="instTot">'+esc(t('instTot',A.rows.length,A.modTotal,cabTot()))+'</b></p>';
+    h+='<h3 style="margin:12px 0 6px">'+esc(t('instSyn'))+'</h3><table><thead><tr>'+['shPost','cobModule','shQty',null,'instCable'].map(k=>k===null?'<th>'+esc(t('instLines'))+'</th>':'<th>'+esc(t(k==='shQty'?'instQty':k))+'</th>').join('')+'</tr></thead><tbody>'
+      +A.mods.map(m=>'<tr><td>'+POSTES[m.poste].n+'</td><td>'+(m.from===m.to?m.from:m.from+' – '+m.to)+'</td><td>'+m.count+'</td><td>'+esc('M'+m.from+(m.to>m.from?'…M'+m.to:'')+' · '+Math.min(+COB.per||18,m.count)+' '+t('cobCue').toLowerCase()+'/'+t('cobModule').toLowerCase())+'</td><td><input type="number" class="instCab" data-p="'+m.poste+'" min="0" max="2000" step="1" value="'+(+PR.cableM[m.poste]||0)+'" style="width:84px"></td></tr>').join('')+'</tbody></table>';
+    h+='<h3 style="margin:14px 0 6px">'+esc(t('instMat'))+'</h3>';
+    A.mods.forEach(m=>{const gs=Object.values(by[m.poste]||{}).sort((a,b)=>b.cal-a.cal||b.n-a.n);
+      h+='<details open style="margin:8px 0"><summary style="cursor:pointer;font-weight:600">'+esc(t('shPost'))+' '+POSTES[m.poste].n+' — '+m.count+' '+esc(t('shQty').toLowerCase?t('instQty').toLowerCase():'')+'</summary><table><thead><tr><th>'+esc(t('instProd'))+'</th><th>'+esc(t('shCal'))+'</th><th>'+esc(t('instQty'))+'</th><th>'+esc(t('instLines'))+'</th></tr></thead><tbody>'
+        +gs.map(g=>'<tr><td>'+esc(g.p?((g.p.ref?g.p.ref+' — ':'')+g.p.name):t('fx_'+g.fx))+'</td><td>'+g.cal+' mm</td><td>'+g.n+'</td><td style="white-space:normal;max-width:360px">'+esc(g.lines.length>14?g.lines.slice(0,14).join(', ')+' …':g.lines.join(', '))+'</td></tr>').join('')+'</tbody></table></details>'});
+    h+='<h3 style="margin:14px 0 6px">'+esc(t('instTubes'))+'</h3><div>'+Object.keys(tubes).map(Number).sort((a,b)=>a-b).map(c=>'<span class="pill" style="margin:0 6px 6px 0;display:inline-block;background:var(--p3);padding:3px 10px;border-radius:99px">'+c+' mm × '+tubes[c]+'</span>').join('')+'</div>';
+    h+='<h3 style="margin:16px 0 6px">'+esc(t('instChkG'))+'</h3>'+[1,2,3,4,5,6,7,8].map(i=>ck('g'+i,t('instG'+i))).join('');
+    A.mods.forEach(m=>{h+='<h3 style="margin:14px 0 6px">'+esc(t('instChkP'))+' '+POSTES[m.poste].n+'</h3>'+[1,2,3,4].map(i=>ck('p'+m.poste+'_'+i,t('instP'+i))).join('')});
+  }
+  SHEETMODE='install';$('#sheetTitle').textContent=t('instTitle')+' — '+(PR.name||'—');$('#sheetBody').innerHTML=h;
+  $$('#sheetBody .instC').forEach(i=>i.onchange=()=>{if(i.checked)PR.chk[i.dataset.k]=true;else delete PR.chk[i.dataset.k];autosave()});
+  $$('#sheetBody .instCab').forEach(i=>i.onchange=()=>{PR.cableM[+i.dataset.p]=Math.max(0,+i.value||0);autosave();const tt=$('#instTot');if(tt)tt.textContent=t('instTot',A.rows.length,A.modTotal,PR.cableM.reduce((q,v)=>q+(+v||0),0))});
+  if(!$('#sheet').open)$('#sheet').showModal();
+}
+{const _s4=$('#shCsv').onclick;$('#shCsv').onclick=()=>SHEETMODE==='install'?download(slug(PR.name)+'-installation.csv',new Blob([instCsv()],{type:'text/csv'})):_s4()}
+$('#bInst').onclick=openInstall;
 
 /* =====================================================================
    16g. OPTIMISATION DES COÛTS : estimation d'après le catalogue, style « économique », réduction de budget
