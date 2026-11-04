@@ -449,7 +449,7 @@ function sp(x,y,vx,vy,L,col,o){
   const p=POOL.pop()||{};
   p.x=x;p.y=y;p.vx=vx;p.vy=vy;p.l=L;p.L=L;p.r=col[0];p.g=col[1];p.b=col[2];
   p.s=o.s||2;p.d=o.d==null?1.5:o.d;p.gv=(o.gv==null?40:o.gv)*GS;p.tr=o.tr==null?.06:o.tr;p.a0=o.a==null?1:o.a;
-  p.tw=o.tw||0;p.ph=Math.random()*6;p.st=o.st||0;p.em=o.em||0;p.sp=o.sp||0;p.acc=0;
+  p.cc=o.cc||0;p.c2=o.c2||null;p.tw=o.tw||0;p.ph=Math.random()*6;p.st=o.st||0;p.em=o.em||0;p.sp=o.sp||0;p.acc=0;
   P.push(p);
 }
 const jc=(c,a)=>[clamp(c[0]+rnd(-a,a),0,255),clamp(c[1]+rnd(-a,a),0,255),clamp(c[2]+rnd(-a,a),0,255)];
@@ -468,6 +468,7 @@ function step(dt){
   for(let i=EM.length-1;i>=0;i--){const m=EM[i];m.t+=dt;if(m.t>m.dur){EM.splice(i,1);continue}m.acc+=dt*m.rate;while(m.acc>=1){m.acc--;m.fn(m)}}
   for(let i=P.length-1;i>=0;i--){const p=P[i];p.l-=dt;
     if(p.l<=0){if(p.sp)split(p);POOL.push(p);P[i]=P[P.length-1];P.pop();continue}
+    if(p.cc&&p.l<p.L*p.cc){p.r=p.c2[0];p.g=p.c2[1];p.b=p.c2[2];p.cc=0}
     const dk=(p.d*20)|0,dr=EXC[dk]||(EXC[dk]=Math.exp(-dk/20*dt));p.vx=p.vx*dr+wind*dt*.25;p.vy=p.vy*dr+p.gv*dt;p.x+=p.vx*dt;p.y+=p.vy*dt;
     if(p.em){p.acc+=dt*(p.em===1?70:20);while(p.acc>=1){p.acc--;const c=p.em===1?[p.r,p.g,p.b]:[255,205,110];sp(p.x,p.y,rnd(-18,18),rnd(-18,18),p.em===1?rnd(.4,.9):rnd(.3,.7),c,{s:p.em===1?1.7:1.1,d:1.8,gv:60,tr:p.em===1?.05:.02,a:.85,tw:p.em===1?0:28})}}
   }
@@ -476,12 +477,16 @@ function step(dt){
 function burst(c,x,y){
   const R=PR.metric?Math.max(14,c.cal*(PR.radK||.45)*ppm()):c.cal*2.35,C1=hex(c.c1),C2=hex(c.c2),dens=c.cnt*QUAL,n=Math.round(c.cal*2.6*dens),two=!same(C1,C2);
   const vel=(R,d,L)=>R*d/(1-Math.exp(-d*L));
-  const sphere=(n,R,d,L,o,col)=>{const vv=vel(R,d,L);for(let i=0;i<n;i++){const a=rnd(0,TAU),z=rnd(-1,1),s=Math.sqrt(1-z*z)*vv*rnd(.93,1.03),oo=Object.assign({},o);oo.em=Math.random()<(o.emp==null?1:o.emp)?o.em:0;sp(x,y,Math.cos(a)*s,Math.sin(a)*s,L*rnd(.85,1.1),jc(col,16),oo)}};
+  const sphere=(n,R,d,L,o,col)=>{const vv=vel(R,d,L),hot=o.hot==null?.09:o.hot;for(let i=0;i<n;i++){const a=rnd(0,TAU),z=rnd(-1,1),s=Math.sqrt(1-z*z)*vv*rnd(.93,1.03),oo=Object.assign({},o);oo.em=Math.random()<(o.emp==null?1:o.emp)?o.em:0;oo.s=(o.s||2)*rnd(.8,1.25);
+    let cl=jc(col,16),c0=cl;
+    if(o.chg){oo.c2=jc(o.chg,12);oo.cc=.5;c0=cl}
+    else if(hot>0){oo.c2=cl;oo.cc=1-hot;c0=[255,246,225]}
+    sp(x,y,Math.cos(a)*s,Math.sin(a)*s,L*rnd(.85,1.1),c0,oo)}};
   const shape=(pts,L,d,o,col)=>{const k=d/(1-Math.exp(-d*L)),rot=c.ang*Math.PI/180+rnd(-.2,.2),cs=Math.cos(rot),sn=Math.sin(rot);pts.forEach(q=>{const px=q[0]*cs-q[1]*sn,py=q[0]*sn+q[1]*cs;sp(x,y,px*k,py*k,L*rnd(.92,1.05),jc(col,10),o)})};
   FL.push({x,y,r:R*2.3,c:C1,l:.6,L:.6});if(PR.showLabels)LBL.push({x,y:y-R*.12,txt:Math.round(heightM(c))+' m · '+c.cal+' mm',l:2,L:2});
   switch(c.fx){
-    case 'peony':{const L=rnd(1.6,2),d=1.7;sphere(n,R,d,L,{s:2.4,tr:.045,gv:36},C1);if(two)sphere(Math.round(n*.45),R*.55,d,L,{s:2.1,tr:.04,gv:36},C2);break}
-    case 'chrysanthemum':{const L=rnd(2.2,2.7),d=1.9;sphere(n,R*1.05,d,L,{s:2,tr:.16,gv:52,em:2,emp:.35},C1);if(two)sphere(Math.round(n*.4),R*.6,d,L,{s:1.8,tr:.14,gv:52},C2);sfx.crackle(10);break}
+    case 'peony':{const L=rnd(1.6,2),d=1.7;sphere(n,R,d,L,{s:2.4,tr:.06,gv:36,chg:two?C2:null,tw:two?0:6},C1);if(two)sphere(Math.round(n*.35),R*.5,d,L,{s:2.1,tr:.05,gv:36,hot:.12},C2);break}
+    case 'chrysanthemum':{const L=rnd(2.2,2.7),d=1.9;sphere(n,R*1.05,d,L,{s:2,tr:.16,gv:52,em:2,emp:.35,chg:two?C2:null},C1);if(two)sphere(Math.round(n*.3),R*.55,d,L,{s:1.8,tr:.14,gv:52},C2);sfx.crackle(10);break}
     case 'willow':{const L=rnd(3.8,4.6),d=2.3;sphere(Math.round(n*.8),R*1.1,d,L,{s:2,tr:.2,gv:84,em:2,emp:.5,a:.92},C1);sfx.crackle(14);break}
     case 'palm':{const arms=9+Math.round(c.cal/50),L=1.9,vv=vel(R*1.05,1.1,L),rot=c.ang*Math.PI/180+rnd(-.1,.1);
       for(let k=0;k<arms;k++){const a=rot+k/arms*TAU+rnd(-.05,.05),v=vv*rnd(.92,1.05);sp(x,y,Math.cos(a)*v,Math.sin(a)*v,L,jc(C1,10),{s:3.3,tr:.1,gv:60,d:1.1,em:1,sp:2})}
@@ -494,7 +499,7 @@ function burst(c,x,y){
       for(let i=0;i<10;i++){const A=V[i],B=V[(i+1)%10];for(let k=0;k<per;k++){const f=k/per;pts.push([A[0]+(B[0]-A[0])*f,A[1]+(B[1]-A[1])*f])}}shape(pts,1.8,1.5,{s:2.4,tr:.05,gv:30,d:1.5},C1);
       if(two)sphere(Math.round(n*.25),R*.3,1.6,1.6,{s:2,tr:.05,gv:30},C2);break}
     case 'crossette':{const m=12+Math.round(c.cal/25),L=1.15,vv=vel(R*.8,1.3,L);for(let i=0;i<m;i++){const a=i/m*TAU+rnd(-.1,.1);sp(x,y,Math.cos(a)*vv,Math.sin(a)*vv,L,jc(i%2&&two?C2:C1,10),{s:2.7,tr:.1,gv:60,d:1.3,em:1,sp:1})}break}
-    case 'strobe':{sphere(Math.round(n*.8),R*.9,2,3,{s:2.5,tr:.02,gv:28,st:1},[255,250,235]);if(two)sphere(Math.round(n*.3),R*.5,2,3,{s:2.2,tr:.02,gv:28,st:1},C2);sfx.crackle(8);break}
+    case 'strobe':{sphere(Math.round(n*.8),R*.9,2,3,{s:2.5,tr:.02,gv:28,st:1,hot:0},[255,250,235]);if(two)sphere(Math.round(n*.3),R*.5,2,3,{s:2.2,tr:.02,gv:28,st:1},C2);sfx.crackle(8);break}
     case 'dahlia':{const arms=14+Math.round(c.cal/25),L=2.2,vv=vel(R*1.05,1.3,L),rot=c.ang*Math.PI/180+rnd(-.1,.1);
       for(let k=0;k<arms;k++){const a=rot+k/arms*TAU+rnd(-.04,.04),v=vv*rnd(.94,1.04);sp(x,y,Math.cos(a)*v,Math.sin(a)*v,L,jc(k%2&&two?C2:C1,10),{s:3.6,tr:.15,gv:46,d:1.3,em:1,sp:2})}
       sphere(Math.round(n*.2),R*.35,1.8,1.6,{s:2,tr:.05,gv:36},two?C2:C1);break}
