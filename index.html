@@ -347,7 +347,7 @@ let DEF={fx:'peony',c1:'#ff3b3b',c2:'#ffc94a',cal:75,h:.7,ang:0,cnt:1,dur:8,post
 let nextId=1;
 const mk=o=>Object.assign({id:nextId++,t:0,poste:2,fx:'peony',c1:'#ff3b3b',c2:'#ffc94a',cal:75,h:.7,ang:0,cnt:1,dur:8},o);
 const isG=c=>!!FX[c.fx].g,hasDur=c=>!!FX[c.fx].dur;
-const lift=c=>isG(c)?0:.55+c.cal*.0115;
+const lift=c=>isG(c)?0:(.9+c.cal*.027)*(.8+.2*Math.min(1,Math.max(.3,c.h||.7)));
 const launchT=c=>c.t-lift(c);
 const fixT=c=>{c.t=Math.max(c.t,lift(c))};
 /* échelle réelle : largeur visible au niveau des feux = 2 · distance du public · tan(champ / 2) */
@@ -1817,18 +1817,18 @@ function genShow(o){
   let last=-9;
   times.forEach((b,idx)=>{
     if(nearDrop(b.t))return;
-    const k=kindAt(b.t),l=clamp(lvlAt(b.t)*inten,0,1.1),gb={intro:2.4,build:1.15,break:3,peak:.7,finale:.4}[k]/Math.max(.5,S.dens);
+    const k=kindAt(b.t),l=clamp(lvlAt(b.t)*inten,0,1.1),gb={intro:2.4,build:1.15,break:3,peak:.7,finale:.4}[k]*2.2/Math.max(.5,S.dens);
     if(b.t-last<gb*beat*S.gap)return;
     const pr=({intro:.5,build:.7,break:.35,peak:.9,finale:1})[k]*(.4+b.s*.75)*(.6+l*.55);if(R()>pr)return;
     last=b.t;const pal=palAt(b.t,false),fx=pickFx(k);let cal=calFor(k,l,b.s);if(b.s>.85&&k!=='intro'&&k!=='break')cal=upCal(cal);
     const post=choosePost(cal>=100?[2,3]:[0,1,2,3,4,5]),a=ang(post),layer=idx%2?.1:-.04;
     const x={t:b.t,fx,c1:pal[0],c2:pal[1],cal,poste:post,h:clamp(H(l,.05)+layer,.4,.95),ang:a};add(x);
-    if(R()<(.2+(b.t-t0)/span*.4)){const p2=palAt(b.t,true),mp=5-post;use[mp]++;add({t:b.t+(R()<.5?0:beat/2),fx:pickFx(k),c1:p2[0],c2:p2[1],cal:Math.max(30,cal-25),poste:mp,h:clamp(x.h+rr(-.08,.05),.4,.95),ang:-a})}
+    if(R()<(.1+(b.t-t0)/span*.3)){const p2=palAt(b.t,true),mp=5-post;use[mp]++;add({t:b.t+(R()<.5?0:beat/2),fx:pickFx(k),c1:p2[0],c2:p2[1],cal:Math.max(30,cal-25),poste:mp,h:clamp(x.h+rr(-.08,.05),.4,.95),ang:-a})}
   });
   /* chorégraphies et signature du style, réparties sur le spectacle */
-  for(let t=t0+bar*2;t<fStart-bar*2;t+=bar*2){const k=kindAt(t),l=lvlAt(t);if(k==='intro'||k==='break'||nearDrop(t)||nearDrop(t+beat*4))continue;
+  for(let t=t0+bar*2;t<fStart-bar*2;t+=bar*4){const k=kindAt(t),l=lvlAt(t);if(k==='intro'||k==='break'||nearDrop(t)||nearDrop(t+beat*4))continue;
     if(R()<S.patProb*(.4+l)){const pt=rp(S.pat),pal=palAt(t,true),cal=k==='build'?50:75;PAT[pt](Math.round(t/(beat/2))*beat/2,pal,cal,pickFx(k))}}
-  secs.filter(s=>s.k==='peak'||(s.k==='build'&&s.b-s.a>12)).forEach(s=>{for(let t=Math.ceil((s.a+bar)/bar)*bar;t<Math.min(s.b,fStart)-bar*2;t+=bar*(s.k==='peak'?4:6)){if(!nearDrop(t)&&!nearDrop(t+beat*4)&&R()<.75)sig(t)}});
+  secs.filter(s=>s.k==='peak'||(s.k==='build'&&s.b-s.a>12)).forEach(s=>{for(let t=Math.ceil((s.a+bar)/bar)*bar;t<Math.min(s.b,fStart)-bar*2;t+=bar*(s.k==='peak'?8:10)){if(!nearDrop(t)&&!nearDrop(t+beat*4)&&R()<.75)sig(t)}});
   /* ouverture, drops, ruptures calmes */
   add({t:t0-1.2,fx:'fountain',poste:0,dur:Math.min(10,span*.2),c1:S.gold,c2:S.alt,h:.55,cal:75,ang:12});add({t:t0-1.2,fx:'fountain',poste:5,dur:Math.min(10,span*.2),c1:S.gold,c2:S.alt,h:.55,cal:75,ang:-12});
   drops.forEach(dropMoment);
