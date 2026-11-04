@@ -194,6 +194,7 @@ th{color:var(--mut);font-weight:600;font-size:12px;text-transform:uppercase;lett
         <span class="lab" data-i="scaleBox"></span>
         <label class="chk" style="margin-top:0"><input type="checkbox" id="cMetric"><span data-i="planMetric"></span></label>
         <div class="row" style="margin-top:8px"><label style="flex:1"><span data-i="viewD" style="font-size:12px;color:var(--mut)"></span><input type="number" id="nD" min="10" max="2000" step="5"></label><label style="flex:1"><span data-i="fov" style="font-size:12px;color:var(--mut)"></span><input type="number" id="nFov" min="20" max="120" step="5"></label></div>
+        <button class="btn sm" id="bFit" style="margin-top:8px;width:100%" data-i="fitView"></button>
         <div class="note" id="visInfo" style="margin-top:6px"></div>
         <label class="chk"><input type="checkbox" id="cLbl"><span data-i="showLabels"></span></label>
         <label class="chk"><input type="checkbox" id="cRule"><span data-i="showRuler"></span></label>
@@ -1654,6 +1655,20 @@ $('#cMetric').onchange=e=>{PR.metric=e.target.checked;syncScale();autosave()};
 $('#nD').onchange=e=>{PR.viewD=clamp(+e.target.value||150,10,2000);syncScale();autosave()};$('#nFov').onchange=e=>{PR.fov=clamp(+e.target.value||60,20,120);syncScale();autosave()};
 $('#cLbl').onchange=e=>{PR.showLabels=e.target.checked;autosave()};$('#cRule').onchange=e=>{PR.showRuler=e.target.checked;autosave()};
 syncScale();
+
+/* ---------- ajustement automatique de la vue : tous les éclatements doivent tenir dans le cadre ---------- */
+Object.assign(I.fr,{fitView:'Ajuster la vue à tous les tirs',fitDone:d=>'Vue ajustée : '+d+' m de recul'});
+Object.assign(I.en,{fitView:'Fit the view to all shots',fitDone:d=>'View fitted: '+d+' m viewing distance'});
+function fitView(){
+  const L=PR.cues.filter(c=>!FX[c.fx].g);if(!L.length||!SC)return;
+  const tops=L.map(c=>heightM(c)+c.cal*(PR.radK||.45)).sort((a,b)=>a-b),top=tops[Math.min(tops.length-1,Math.floor(tops.length*.97))];
+  const gf=clamp(SC.ground/H,.5,.97),needH=top*1.08/(gf*9/16),needW=Math.max(needH,PR.siteW*1.2+2*(Math.max(...L.map(c=>c.cal))*(PR.radK||.45)));
+  const w=Math.max(needH,needW),d=Math.ceil(w/(2*Math.tan(clamp(PR.fov,20,120)*Math.PI/360))/5)*5;
+  PR.viewD=clamp(d,10,2000);syncScale();autosave();return PR.viewD;
+}
+$('#bFit').onclick=()=>{const d=fitView();if(d)toast(t('fitDone',d))};
+{const _cm=$('#cMetric').onchange;$('#cMetric').onchange=e=>{_cm(e);if(PR.metric)fitView()}}
+{const _ns=newShow;newShow=function(o){_ns(o);if(PR.metric)fitView()}}
 
 /* =====================================================================
    16e. SPECTACLES AUTOMATIQUES V2 : styles, chorégraphies, structure musicale, montage musical automatique
