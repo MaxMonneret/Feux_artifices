@@ -1778,6 +1778,20 @@ function genShow(o){
   /* ouverture, drops, ruptures calmes */
   add({t:t0-1.2,fx:'fountain',poste:0,dur:Math.min(10,span*.2),c1:S.gold,c2:S.alt,h:.55,cal:75,ang:12});add({t:t0-1.2,fx:'fountain',poste:5,dur:Math.min(10,span*.2),c1:S.gold,c2:S.alt,h:.55,cal:75,ang:-12});
   drops.forEach(dropMoment);
+  /* calage sur les bandes : chaque instrument a son effet */
+  {const bk=S.band==null?(o.style==='eco'?0:.6):S.band;
+   if(useA&&bk>0&&AU.kicks&&AU.kicks.length){
+     let lastK=-9,lastH=-9,nk=0,nh=0;
+     AU.kicks.forEach(k=>{if(k.t<t0||k.t>fStart||nearDrop(k.t)||k.s<.5)return;const kd=kindAt(k.t),l=lvlAt(k.t);if(l<.45||((kd==='intro'||kd==='break')&&l<.65))return;
+       if(k.t-lastK<beat*2.2/bk||R()>bk*(.5+k.s*.6))return;lastK=k.t;nk++;const pal=palAt(k.t,false);
+       if(k.s>.8&&l>.7){[0,5].forEach((p,i)=>add({t:k.t,fx:'mine',poste:p,cal:Math.min(S.calMax,50),c1:pal[0],c2:S.alt,ang:i?-10:10}))}
+       else{const po=choosePost([1,2,3,4]);add({t:k.t,fx:pickFx(kd),poste:po,cal:Math.min(S.calMax,100),c1:pal[0],c2:pal[1],h:H(l,.04),ang:ang(po)})}});
+     const hiE=AU.band?AU.band.high:null;
+     AU.highs.forEach(hh=>{if(hh.t<t0||hh.t>fStart||nearDrop(hh.t)||hh.s<.55)return;const kd=kindAt(hh.t),lh=lvlAt(hh.t);if(lh<.45||((kd==='intro'||kd==='break')&&lh<.65))return;
+       if(hiE&&hiE[Math.min(hiE.length-1,Math.floor(hh.t*2))]<.45)return;if(hh.t-lastH<1.1/bk||R()>bk)return;lastH=hh.t;nh++;
+       const pal=palAt(hh.t,true),po=choosePost([0,1,4,5]);add({t:hh.t,fx:rp(['comet','star','ring']),poste:po,cal:30,c1:pal[0],c2:pal[1],h:rr(.5,.75),ang:ang(po)})});
+     secs.filter(q=>q.k==='break'&&q.b-q.a>4).forEach(q=>[2,3].forEach((p,i)=>add({t:q.a+beat*(i?2:0),fx:'willow',poste:p,cal:Math.min(S.calMax,75),c1:S.gold,c2:S.alt,h:.8,ang:i?4:-4})));
+   }}
   secs.filter(s=>s.k==='break'&&s.b-s.a>5).forEach(s=>{[2,3].forEach(p=>add({t:s.a+beat,fx:'curtain',poste:p,dur:Math.min(10,s.b-s.a-2),c1:S.gold,c2:S.gold,h:.6,cal:100}))});
   for(let k=0;k<S.curtains;k++){const t=t0+span*(.5+k*.12);add({t:Math.round(t/beat)*beat,fx:'curtain',poste:[1,4,2,3][k%4],dur:Math.min(10,span*.12),c1:S.gold,c2:S.gold,h:.6,cal:100})}
   /* BOUQUET FINAL (inspiré des vrais spectacles) :
@@ -1806,6 +1820,24 @@ function genShow(o){
   if(!eco)[0,1,4,5].forEach((po,k)=>add({t:tB+3.9+k*.1,fx:'willow',poste:po,cal:mid,c1:S.gold,c2:S.gold,h:.8,ang:po<2?-8:8}));
   return out.slice(0,1400);
 }
+
+/* ---------- analyse par bandes : graves (<150 Hz), médiums, aigus (>3 kHz) ---------- */
+Object.assign(I.fr,{st_musique:'Spectacle musical (graves / aigus)'});Object.assign(I.en,{st_musique:'Musical show (bass / treble)'});
+function bandAnalyze(b){
+  AU.kicks=[];AU.highs=[];AU.band=null;if(!b)return;
+  const sr=b.sampleRate,ch=b.getChannelData(0),n=ch.length,h=Math.floor(sr*.02),m=Math.floor(n/h);if(m<20)return;
+  const a1=1-Math.exp(-2*Math.PI*150/sr),a2=1-Math.exp(-2*Math.PI*3000/sr);let l1=0,l2=0;
+  const Lo=new Float32Array(m),Mi=new Float32Array(m),Hi=new Float32Array(m);
+  for(let i=0;i<m;i++){let el=0,em=0,eh=0;for(let j=i*h,e=j+h;j<e;j++){const x=ch[j];l1+=a1*(x-l1);l2+=a2*(x-l2);const hi=x-l2,mi=l2-l1;el+=l1*l1;em+=mi*mi;eh+=hi*hi}Lo[i]=Math.sqrt(el/h);Mi[i]=Math.sqrt(em/h);Hi[i]=Math.sqrt(eh/h)}
+  const ons=(A,gap,k)=>{const o=[];let last=-9;for(let i=4;i<m-1;i++){let mean=0;for(let q=1;q<=4;q++)mean+=A[i-q];mean/=4;const f=Math.max(0,A[i]-mean*1.05);let loc=0,c=0;for(let q=Math.max(0,i-50);q<Math.min(m,i+50);q++){loc+=A[q];c++}loc/=c;
+      if(f>loc*(k-1)*.5&&A[i]>loc*k&&A[i]>=A[i-1]&&A[i]>=A[i+1]&&i*.02-last>gap){o.push({t:i*.02,s:f});last=i*.02}}
+    const mx=Math.max(1e-9,...o.map(x=>x.s));o.forEach(x=>x.s=Math.min(1,x.s/mx));return o};
+  AU.kicks=ons(Lo,.22,1.5);AU.highs=ons(Hi,.1,1.7);
+  const seg=25,ne=Math.ceil(m/seg),mk=A=>{const e=new Float32Array(ne);for(let i=0;i<ne;i++){let q=0,c=0;for(let k=i*seg;k<Math.min(m,(i+1)*seg);k++){q+=A[k];c++}e[i]=q/Math.max(1,c)}const mx=Math.max(1e-9,...e);for(let i=0;i<ne;i++)e[i]/=mx;return e};
+  AU.band={low:mk(Lo),mid:mk(Mi),high:mk(Hi)};
+}
+{const _aa=analyzeAudio;analyzeAudio=function(){_aa();try{bandAnalyze(AU.buf)}catch(e){console.error('bands',e)}}}
+Object.assign(STYLES,{musique:ST([['#ff3b3b','#ffc94a'],['#35f0ff','#a05bff'],['#3dff7a','#fff4e0'],['#ff5fc4','#35f0ff'],['#ffc94a','#ff8a2a']],{intro:['peony','ring'],build:['crossette','ring','peony','spiral','star'],peak:['dahlia','chrysanthemum','saturn','crossette','palm','ring'],finale:['dahlia','brocade','chrysanthemum','saturn'],break:['willow','star']},{pat:['fan','chase','wave','sym'],dens:1,gap:.9,patProb:.6,mines:2,curtains:2,breakOn:1,band:1})});
 
 /* ---------- montage musical automatique ---------- */
 function featsOf(buf){
