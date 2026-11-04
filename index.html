@@ -218,6 +218,10 @@ th{color:var(--mut);font-weight:600;font-size:12px;text-transform:uppercase;lett
         <div class="row" style="margin-top:14px"><button class="btn pri" id="bGen" style="flex:1" data-i="generate"></button></div>
         <div class="row" style="margin-top:8px"><button class="btn" id="bAll" style="flex:1" data-i="autoAll"></button></div>
         <div class="note" data-i="autoAllNote" style="margin-top:8px"></div>
+        <span class="lab" data-i="budget"></span>
+        <div class="row"><label style="flex:1"><span data-i="budgetMax" style="font-size:12px;color:var(--mut)"></span><input type="number" id="bgMax" min="0" step="50" placeholder="€ HT"></label><label style="flex:1"><span data-i="budgetCut" style="font-size:12px;color:var(--mut)"></span><input type="number" id="bgCut" min="5" max="90" step="5" value="30"></label></div>
+        <div class="row" style="margin-top:8px"><button class="btn" id="bgLink" style="flex:1" data-i="budgetLink"></button><button class="btn pri" id="bgOpt" style="flex:1" data-i="budgetOpt"></button></div>
+        <div class="note" id="bgInfo"></div>
         <div class="note" data-i="autoNote"></div>
       </div>
     </div>
@@ -439,7 +443,7 @@ const sfx={
 /* =====================================================================
    4. MOTEUR DE PARTICULES ET D'EFFETS
    ===================================================================== */
-const P=[],POOL=[],RK=[],EM=[],FL=[],PEND=[];let SIMT=0;const MAXP=9000;
+const EXC=[];const P=[],POOL=[],RK=[],EM=[],FL=[],PEND=[];let SIMT=0;const MAXP=9000;
 function sp(x,y,vx,vy,L,col,o){
   if(P.length>=MAXP)return;o=o||{};
   const p=POOL.pop()||{};
@@ -455,7 +459,7 @@ function split(p){
   else{for(let k=0;k<12;k++){const a=rnd(0,TAU),v=rnd(30,130);sp(p.x,p.y,Math.cos(a)*v,Math.sin(a)*v,rnd(.4,.9),[255,205,120],{s:1.5,d:2,gv:70,tr:.05,tw:26})}}
 }
 function step(dt){
-  SIMT+=dt;const wind=PR.wind*60;GS=PR.metric?clamp(ppm()/12,.35,2.2):1;for(let i=LBL.length-1;i>=0;i--){LBL[i].l-=dt;if(LBL[i].l<=0)LBL.splice(i,1)}
+  SIMT+=dt;EXC.length=0;const wind=PR.wind*60;GS=PR.metric?clamp(ppm()/12,.35,2.2):1;for(let i=LBL.length-1;i>=0;i--){LBL[i].l-=dt;if(LBL[i].l<=0)LBL.splice(i,1)}
   for(let i=PEND.length-1;i>=0;i--)if(PEND[i].at<=SIMT){const q=PEND.splice(i,1)[0];q.fn()}
   for(let i=RK.length-1;i>=0;i--){const k=RK[i];k.t+=dt;const u=Math.min(1,k.t/k.dur),e=1-(1-u)*(1-u);k.x=k.x0+(k.x1-k.x0)*e;k.y=k.y0+(k.y1-k.y0)*e;
     k.acc+=dt*(k.big?160:110);while(k.acc>=1){k.acc--;sp(k.x+rnd(-1.5,1.5),k.y,rnd(-14,14)+wind*.1,rnd(15,60),rnd(.35,.8),[255,170,80],{s:1.5,d:2,gv:90,tr:.02,a:.8})}
@@ -464,7 +468,7 @@ function step(dt){
   for(let i=EM.length-1;i>=0;i--){const m=EM[i];m.t+=dt;if(m.t>m.dur){EM.splice(i,1);continue}m.acc+=dt*m.rate;while(m.acc>=1){m.acc--;m.fn(m)}}
   for(let i=P.length-1;i>=0;i--){const p=P[i];p.l-=dt;
     if(p.l<=0){if(p.sp)split(p);POOL.push(p);P[i]=P[P.length-1];P.pop();continue}
-    const dr=Math.exp(-p.d*dt);p.vx=p.vx*dr+wind*dt*.25;p.vy=p.vy*dr+p.gv*dt;p.x+=p.vx*dt;p.y+=p.vy*dt;
+    const dk=(p.d*20)|0,dr=EXC[dk]||(EXC[dk]=Math.exp(-dk/20*dt));p.vx=p.vx*dr+wind*dt*.25;p.vy=p.vy*dr+p.gv*dt;p.x+=p.vx*dt;p.y+=p.vy*dt;
     if(p.em){p.acc+=dt*(p.em===1?70:20);while(p.acc>=1){p.acc--;const c=p.em===1?[p.r,p.g,p.b]:[255,205,110];sp(p.x,p.y,rnd(-18,18),rnd(-18,18),p.em===1?rnd(.4,.9):rnd(.3,.7),c,{s:p.em===1?1.7:1.1,d:1.8,gv:60,tr:p.em===1?.05:.02,a:.85,tw:p.em===1?0:28})}}
   }
   for(let i=FL.length-1;i>=0;i--){FL[i].l-=dt;if(FL[i].l<=0)FL.splice(i,1)}
@@ -521,7 +525,7 @@ const stage=$('#stage'),sx=stage.getContext('2d'),pl=document.createElement('can
 let K=1,EXPORT=false,EXPW=1280;
 const glA=document.createElement('canvas'),glB=document.createElement('canvas'),gxA=glA.getContext('2d'),gxB=glB.getContext('2d');
 function resize(){
-  const r=stage.getBoundingClientRect(),dpr=Math.min(window.devicePixelRatio||1,2);let w=EXPORT?EXPW:Math.min(1920,Math.max(320,Math.round(r.width*dpr)));
+  const r=stage.getBoundingClientRect(),dpr=Math.min(window.devicePixelRatio||1,2);let w=EXPORT?EXPW:Math.min(1280,Math.max(320,Math.round(r.width*dpr)));
   const h=Math.round(w*9/16);if(stage.width!==w||!SC||SC.id!==PR.scene){if(stage.width!==w){stage.width=w;stage.height=h;pl.width=w;pl.height=h;glA.width=Math.round(w/4);glA.height=Math.round(h/4);glB.width=Math.round(w/12);glB.height=Math.round(h/12)}K=w/W;SC=buildScene(PR.scene,K)}
 }
 function drawFlash(ctx,k,a){
@@ -533,17 +537,14 @@ function drawFlash(ctx,k,a){
 function fadeDraw(){
   plx.globalCompositeOperation='destination-out';plx.fillStyle='rgba(0,0,0,.4)';plx.fillRect(0,0,pl.width,pl.height);
   plx.globalCompositeOperation='lighter';plx.lineCap='round';
-  for(const p of P){let a=Math.min(1,p.l/p.L*1.5)*p.a0;if(p.tw)a*=.5+.5*Math.abs(Math.sin(p.ph+(p.L-p.l)*p.tw));if(p.st)a*=Math.sin(p.ph*5+(p.L-p.l)*38)>.25?1:.06;if(a<.03)continue;
-    plx.strokeStyle='rgba('+(p.r|0)+','+(p.g|0)+','+(p.b|0)+','+a.toFixed(2)+')';plx.lineWidth=p.s*K;plx.beginPath();plx.moveTo((p.x-p.vx*p.tr)*K,(p.y-p.vy*p.tr)*K);plx.lineTo(p.x*K,p.y*K);plx.stroke()}
-}
-function drawPostes(ctx,k){
-  ctx.save();ctx.font='bold '+Math.round(13*k)+'px "Segoe UI",sans-serif';ctx.textAlign='center';
-  POSTES.forEach((p,pi)=>{const x=sxOf(pi)*k,y=SC.ground*k;ctx.strokeStyle='rgba(255,179,71,.4)';ctx.lineWidth=Math.max(1,k);ctx.setLineDash([4*k,5*k]);ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x,y-70*k);ctx.stroke();ctx.setLineDash([]);
-    ctx.fillStyle='rgba(255,179,71,.96)';ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x-9*k,y+16*k);ctx.lineTo(x+9*k,y+16*k);ctx.closePath();ctx.fill();
-    ctx.fillStyle='rgba(0,0,0,.55)';ctx.fillRect(x-11*k,y+19*k,22*k,16*k);ctx.fillStyle='#fff';ctx.fillText(p.n,x,y+32*k)});
-  ctx.font=Math.round(11*k)+'px "Segoe UI",sans-serif';ctx.strokeStyle='rgba(255,255,255,.55)';ctx.fillStyle='rgba(255,255,255,.9)';ctx.lineWidth=Math.max(1,k*.8);
-  for(let i=0;i<POSTES.length-1;i++){const a=sxOf(i)*k,b=sxOf(i+1)*k,my=(SC.ground+44)*k;ctx.beginPath();ctx.moveTo(a,my);ctx.lineTo(b,my);ctx.moveTo(a,my-4*k);ctx.lineTo(a,my+4*k);ctx.moveTo(b,my-4*k);ctx.lineTo(b,my+4*k);ctx.stroke();ctx.fillText(((POSTES[i+1].x-POSTES[i].x)*PR.siteW).toFixed(1)+' m',(a+b)/2,my-7*k)}
-  ctx.restore();
+  const B=new Map();
+  for(const p of P){
+    let a=Math.min(1,p.l/p.L*1.5)*p.a0;if(p.tw)a*=.5+.5*Math.abs(Math.sin(p.ph+(p.L-p.l)*p.tw));if(p.st)a*=Math.sin(p.ph*5+(p.L-p.l)*38)>.25?1:.06;if(a<.04)continue;
+    const ab=Math.min(7,(a*8)|0),wb=Math.round(p.s*2),key=((((p.r>>4)<<8)|((p.g>>4)<<4)|(p.b>>4))*8+ab)*16+wb;
+    let g=B.get(key);if(!g){g={st:'rgba('+(((p.r>>4)<<4)+8)+','+(((p.g>>4)<<4)+8)+','+(((p.b>>4)<<4)+8)+','+((ab+.5)/8).toFixed(2)+')',w:wb/2*K,s:[]};B.set(key,g)}
+    g.s.push((p.x-p.vx*p.tr)*K,(p.y-p.vy*p.tr)*K,p.x*K,p.y*K);
+  }
+  B.forEach(g=>{plx.strokeStyle=g.st;plx.lineWidth=g.w;plx.beginPath();const s=g.s;for(let i=0;i<s.length;i+=4){plx.moveTo(s[i],s[i+1]);plx.lineTo(s[i+2],s[i+3])}plx.stroke()});
 }
 function drawScale(ctx,k){
   if(!PR.metric||!PR.showRuler)return;const g=SC.ground,pp=ppm();ctx.save();ctx.font=Math.round(11*k)+'px "Segoe UI",sans-serif';ctx.textAlign='left';ctx.textBaseline='middle';
@@ -590,17 +591,17 @@ function startAudio(){
 function stopAudio(){if(AU.src){try{AU.src.onended=null;AU.src.stop()}catch(e){}AU.src=null}}
 function play(){if(PL.playing)return;ac();if(PL.t>duration()-1)PL.t=0;if(PL.t===0||!P.length){resetSim();rebuildEV();if(PL.t>0)simTo(Math.max(0,PL.t-6),PL.t)}PL.playing=true;startAudio();updPlay()}
 function pause(){PL.playing=false;stopAudio();cutSfx();updPlay()}
-let lastNow=0,slow=0;
+let lastNow=0,slow=0,FR=0;
 function tick(now){
   requestAnimationFrame(tick);const dt=Math.min(.08,Math.max(0,(now-(lastNow||now))/1000));lastNow=now;AU.n=Math.max(0,AU.n-dt*40);
   if(PL.playing){
     PL.t+=dt;while(EVI<EV.length&&EV[EVI].lt<=PL.t){fireCue(EV[EVI].c);EVI++}
-    const sub=Math.ceil(dt/.0167);for(let i=0;i<sub;i++)step(dt/sub);fadeDraw();
+    const sub=Math.min(2,Math.ceil(dt/.0334));for(let i=0;i<sub;i++)step(dt/sub);fadeDraw();
     if(AU.src&&AU.ctx){const should=AU.ctx.currentTime-AU.t0;if(Math.abs(should-PL.t)>.18)PL.t=should}
     if(PL.t>duration()-.5){if(LOOP)seekTo(0),startAudio();else{pause();PL.t=0;resetSim();rebuildEV()}}
     if(dt>.028){slow+=dt}else slow=Math.max(0,slow-dt*.5);if(slow>1.2&&QUAL>.5){QUAL=Math.max(.5,QUAL-.15);slow=0}
   }
-  render();hudTick();tlDraw();
+  render();if(!EXPORT){FR=(FR+1)|0;if((FR&1)===0)hudTick();if(TL.drag||FR%(PL.playing?3:4)===0)tlDraw()}
 }
 
 /* =====================================================================
@@ -665,7 +666,7 @@ function tlDraw(){
   for(const c of PR.cues){
     const ly=laneY(c.poste),r=blockRect(c),sel=SEL.has(c.id);if(r.x+r.w<TL.gut||r.x>w)continue;
     if(!isG(c)){const lx=t2x(launchT(c));x.strokeStyle=sel?'rgba(255,255,255,.55)':'rgba(255,255,255,.22)';x.setLineDash([3,3]);x.beginPath();x.moveTo(lx,ly+TL.lane/2);x.lineTo(r.x+r.w/2,ly+TL.lane/2);x.stroke();x.setLineDash([]);x.fillStyle=sel?'#fff':'#9aa3c2';x.beginPath();x.moveTo(lx,ly+TL.lane/2-4);x.lineTo(lx+5,ly+TL.lane/2);x.lineTo(lx,ly+TL.lane/2+4);x.fill()}
-    const g=x.createLinearGradient(r.x,0,r.x+r.w,0);g.addColorStop(0,c.c1);g.addColorStop(1,c.c2);x.fillStyle=g;x.beginPath();x.roundRect(r.x,ly+4,r.w,TL.lane-8,5);x.fill();
+    x.fillStyle=c.c1;x.beginPath();x.roundRect(r.x,ly+4,r.w,TL.lane-8,5);x.fill();x.fillStyle=c.c2;x.fillRect(r.x+r.w*.62,ly+7,Math.max(2,r.w*.34),TL.lane-14);
     x.strokeStyle=sel?'#fff':'rgba(0,0,0,.55)';x.lineWidth=sel?2:1;x.stroke();x.lineWidth=1;
     if(r.w>=34){x.fillStyle='rgba(0,0,0,.72)';x.textBaseline='middle';x.fillText(fxShort(c),r.x+5,ly+TL.lane/2+.5)}
     if(r.dur){x.fillStyle='rgba(255,255,255,.55)';x.fillRect(r.x+r.w-4,ly+8,2,TL.lane-16)}
@@ -1643,8 +1644,7 @@ function genShow(o){
   const dur=o.dur,beat=60/o.bpm,bar=beat*4,t0=Math.ceil(3/beat)*beat,tEnd=Math.max(t0+12,dur-8),span=tEnd-t0,inten=o.inten/100,out=[];
   const add=x=>{const c=mk(x);if(x.dur)c.dur=Math.round(c.dur*2)/2;fixT(c);out.push(c);return c};
   const pool=k=>Array.isArray(S.fx)?S.fx:(S.fx[k]||S.fx.peak||['peony']);
-  const useA=!!(o.beats&&AU.env&&AU.sections&&AU.sections.length);
-  const fStart=tEnd-span*.13;
+  const useA=!!(o.beats&&AU.env&&AU.sections&&AU.sections.length),fStart=tEnd-span*.13;
   /* structure : sections issues de la musique, ou structure type */
   let secs;
   if(useA)secs=AU.sections.filter(s=>s.b>t0&&s.a<tEnd).map(s=>({a:Math.max(t0,s.a),b:Math.min(tEnd,s.b),lvl:s.lvl,k:s.k===2?'peak':s.k===1?'build':(s.a<t0+span*.18?'intro':'break')}));
@@ -1652,46 +1652,74 @@ function genShow(o){
     if(S.breakOn)secs.push({a:f(.42,0)[1],b:f(.5,0)[1],lvl:.3,k:'break'});secs.push({a:f(S.breakOn?.5:.42,0)[1],b:fStart,lvl:.85,k:'peak'})}
   const kindAt=t=>{if(t>=fStart)return'finale';const s=secs.find(x=>t>=x.a&&t<x.b);return s?s.k:'build'};
   const lvlAt=t=>{if(t>=fStart)return 1;if(useA&&AU.env)return clamp(AU.env[Math.min(AU.env.length-1,Math.floor(t*2))],0,1)*.7+(secs.find(x=>t>=x.a&&t<x.b)||{lvl:.5}).lvl*.3;const s=secs.find(x=>t>=x.a&&t<x.b);return s?s.lvl:.5};
-  const palAt=t=>{const p=clamp((t-t0)/span,0,.999),i=Math.floor(p*S.pal.length*1.4)%S.pal.length;return R()<.3?rp(S.pal):S.pal[i]};
-  const calFor=(k,l,s)=>{let c=k==='intro'||k==='break'?(l<.4?30:50):k==='build'?(l<.6?50:75):k==='peak'?(l>.8&&s>.6?100:75):(l>.8?(R()<.5?150:100):100);return Math.min(c,S.calMax)};
+  /* palette qui évolue dans le temps (pas de sauts), avec une variante occasionnelle pour le second tir */
+  const palAt=(t,v)=>{const i=Math.floor(clamp((t-t0)/span,0,.999)*S.pal.length*1.3)%S.pal.length;return v&&R()<.3?S.pal[(i+1)%S.pal.length]:S.pal[i]};
+  const calFor=(k,l,s)=>{let c=k==='intro'||k==='break'?(l<.4?30:50):k==='build'?(l<.6?50:75):k==='peak'?(l>.8&&s>.6?100:75):(l>.85&&R()<.22?150:100);return Math.min(c,S.calMax)};
+  const upCal=c=>Math.min(S.calMax,c<=30?50:c<=50?75:c<=75?100:150);
   const H=(l,j)=>clamp(.5+.4*l+rr(-j,j),.4,.95);
   const ang=p=>Math.round(p<2?rr(6,18):p>3?-rr(6,18):rr(-6,6));
+  /* équilibre des postes et variété des effets */
+  const use=[0,0,0,0,0,0],choosePost=c=>{const m=Math.min(...c.map(p=>use[p])),b=c.filter(p=>use[p]===m),p=rp(b);use[p]++;return p};
+  const lastFx=[],pickFx=k=>{const pl=pool(k).filter(f=>!lastFx.includes(f)),f=rp(pl.length?pl:pool(k));lastFx.push(f);if(lastFx.length>2)lastFx.shift();return f};
   /* chorégraphies */
   const PAT={
-    fan(t,pal,cal,fx){const dir=R()<.5?1:-1;for(let i=0;i<6;i++){const p=dir>0?i:5-i,pp=S.pal[(i+(S.pal.indexOf(pal)))%S.pal.length];add({t:t+i*beat/2,fx,poste:p,cal,c1:pp[0],c2:pp[1],h:H(.5+i*.07,.03),ang:Math.round((p-2.5)*6)})}},
-    wave(t,pal,cal,fx){const order=[0,1,2,3,4,5,4,3,2,1];order.forEach((p,i)=>add({t:t+i*beat/2,fx,poste:p,cal,c1:pal[0],c2:pal[1],h:H(.55+.3*Math.sin(i/9*Math.PI),.02),ang:ang(p)}))},
-    chase(t,pal,cal,fx){const order=[0,5,1,4,2,3,2,3];order.forEach((p,i)=>{const pp=S.pal[i%S.pal.length];add({t:t+i*beat/4*2,fx,poste:p,cal:Math.min(cal,75),c1:pp[0],c2:pp[1],h:H(.55+i*.03,.03),ang:ang(p)})})},
+    fan(t,pal,cal,fx){const dir=R()<.5?1:-1;for(let i=0;i<6;i++){const p=dir>0?i:5-i,pp=S.pal[(i+S.pal.indexOf(pal))%S.pal.length];add({t:t+i*beat/2,fx,poste:p,cal,c1:pp[0],c2:pp[1],h:H(.5+i*.07,.03),ang:Math.round((p-2.5)*6)})}},
+    wave(t,pal,cal,fx){[0,1,2,3,4,5,4,3,2,1].forEach((p,i)=>add({t:t+i*beat/2,fx,poste:p,cal,c1:pal[0],c2:pal[1],h:H(.55+.3*Math.sin(i/9*Math.PI),.02),ang:ang(p)}))},
+    chase(t,pal,cal,fx){[0,5,1,4,2,3,2,3].forEach((p,i)=>{const pp=S.pal[i%S.pal.length];add({t:t+i*beat/2,fx,poste:p,cal:Math.min(cal,75),c1:pp[0],c2:pp[1],h:H(.55+i*.03,.03),ang:ang(p)})})},
     sym(t,pal,cal,fx){[[0,5],[1,4],[2,3]].forEach((pr,i)=>pr.forEach(p=>add({t:t+i*beat,fx,poste:p,cal,c1:pal[0],c2:pal[1],h:H(.6+i*.08,.02),ang:ang(p)})))}
   };
+  /* signature de chaque style : un enchaînement caractéristique, placé dans les montées et les passages intenses */
+  const SIG={
+    gala(t){[1,4].forEach((p,i)=>add({t:t+i*beat,fx:'curtain',poste:p,dur:5,c1:S.gold,c2:S.gold,h:.62,cal:100}));[2,3].forEach((p,i)=>add({t:t+beat*2,fx:'willow',poste:p,cal:100,c1:S.gold,c2:S.alt,h:.85,ang:i?3:-3}))},
+    club(t){for(let i=0;i<4;i++)add({t:t+i*beat,fx:'strobe',poste:i%2?3:2,cal:50,c1:'#fff4e0',c2:rp(S.pal)[0],h:.6+i*.05,ang:i%2?5:-5});PAT.chase(t+beat*4,rp(S.pal),50,'ring')},
+    epique(t){PAT.sym(t,rp(S.pal),100,'saturn');[0,5].forEach((p,i)=>add({t:t+beat*3,fx:'mine',poste:p,cal:75,c1:S.gold,c2:S.alt,ang:i?-12:12}))},
+    mariage(t){const pp=rp(S.pal);for(let i=0;i<6;i++)add({t:t+i*beat/2,fx:'heart',poste:i,cal:75,c1:pp[0],c2:pp[1],h:.55+i*.06,ang:Math.round((i-2.5)*4)})},
+    neon(t){PAT.fan(t,rp(S.pal),50,'spiral');PAT.chase(t+beat*3,rp(S.pal),50,'ring')},
+    glace(t){[[2,3],[1,4],[0,5]].forEach((pr,i)=>pr.forEach(p=>add({t:t+i*beat,fx:i===0?'saturn':'crossette',poste:p,cal:75,c1:S.pal[i%S.pal.length][0],c2:S.pal[i%S.pal.length][1],h:.6+i*.12,ang:p<3?-6-i*4:6+i*4})))},
+    lave(t){[0,5,1,4,2,3].forEach((p,i)=>add({t:t+i*beat/2,fx:'mine',poste:p,cal:75,c1:S.pal[i%S.pal.length][0],c2:S.alt,ang:p<3?10:-10}));add({t:t+beat*3.5,fx:'dahlia',poste:2,cal:100,c1:S.gold,c2:S.alt,h:.85,ang:0})},
+    jardin(t){['ring','heart','star','ring','heart','star'].forEach((f,i)=>add({t:t+i*beat/2,fx:f,poste:i,cal:75,c1:S.pal[i%S.pal.length][0],c2:S.pal[i%S.pal.length][1],h:.6+.04*i,ang:Math.round((i-2.5)*4)}))},
+    pluie_or(t){[0,1,2,3,4,5].forEach((p,i)=>add({t:t+i*beat,fx:'curtain',poste:p,dur:4,c1:S.gold,c2:S.gold,h:.6,cal:75}))},
+    festival(t){PAT.wave(t,rp(S.pal),50,rp(['ring','heart','spiral','peony']));PAT.sym(t+beat*5,rp(S.pal),75,'saturn')},
+    eco(t){PAT.fan(t,rp(S.pal),50,rp(pool('peak')));PAT.fan(t+beat*3.5,rp(S.pal),50,rp(pool('peak')))}
+  };
+  const sig=SIG[o.style]||(t=>{PAT.sym(t,rp(S.pal),75,rp(pool('peak')));PAT.fan(t+beat*3.5,rp(S.pal),50,rp(pool('build')))});
   const dropMoment=t=>{
     const pal=S.pal[0],pal2=rp(S.pal);
     for(let i=0;i<6;i++)add({t:t-4*beat+i*beat*.6,fx:'comet',poste:i,cal:50,c1:S.gold,c2:S.alt,h:.6+i*.05,ang:Math.round((i-2.5)*5)});
     add({t,fx:S.dropBig?'saturn':rp(pool('peak')),poste:2,cal:Math.min(150,S.calMax),c1:pal[0],c2:pal[1],h:.85,ang:-4});add({t,fx:S.dropBig?'dahlia':rp(pool('peak')),poste:3,cal:Math.min(150,S.calMax),c1:pal2[0],c2:pal2[1],h:.85,ang:4});
     [1,4].forEach(p=>add({t,fx:'strobe',poste:p,cal:75,c1:'#fff4e0',c2:pal[0],h:.7,ang:p<2?10:-10}));
-    for(let k=0;k<S.mines;k++){add({t:t+beat*.5,fx:'mine',poste:[0,5][k%2],cal:75,c1:pal[0],c2:S.alt,ang:[12,-12][k%2]})}
+    for(let k=0;k<S.mines;k++)add({t:t+beat*.5,fx:'mine',poste:[0,5][k%2],cal:75,c1:pal[0],c2:S.alt,ang:[12,-12][k%2]});
     add({t:t+beat,fx:'curtain',poste:2,dur:6,c1:S.gold,c2:S.gold,h:.62,cal:100});add({t:t+beat,fx:'curtain',poste:3,dur:6,c1:S.gold,c2:S.gold,h:.62,cal:100});
+    sig(t+beat*4);
   };
-  /* candidats : temps forts de la musique, ou grille de battements */
+  const drops=useA&&AU.drops&&AU.drops.length?AU.drops.filter(d=>d>t0+beat*5&&d<fStart-bar):(()=>{const pk=secs.find(s=>s.k==='peak');return pk?[Math.round(pk.a/beat)*beat]:[]})();
+  /* silence avant chaque drop : la tension monte, puis tout explose */
+  const nearDrop=t=>drops.some(d=>t>d-beat*2.6&&t<d-.01);
   const times=useA&&BEATS.length?BEATS.filter(b=>b.t>=t0&&b.t<=fStart).map(b=>({t:b.t,s:b.s})):(()=>{const L=[];for(let t=t0,i=0;t<=fStart;t+=beat,i++)L.push({t,s:i%4===0?1:i%2===0?.65:.4});return L})();
   let last=-9;
-  times.forEach(b=>{
+  times.forEach((b,idx)=>{
+    if(nearDrop(b.t))return;
     const k=kindAt(b.t),l=clamp(lvlAt(b.t)*inten,0,1.1),gb={intro:2.4,build:1.15,break:3,peak:.7,finale:.4}[k]/Math.max(.5,S.dens);
     if(b.t-last<gb*beat*S.gap)return;
     const pr=({intro:.5,build:.7,break:.35,peak:.9,finale:1})[k]*(.4+b.s*.75)*(.6+l*.55);if(R()>pr)return;
-    last=b.t;const pal=palAt(b.t),fx=rp(pool(k)),cal=calFor(k,l,b.s),post=cal>=100?rp([2,3]):rp([0,1,2,3,4,5]),a=ang(post);
-    const x={t:b.t,fx,c1:pal[0],c2:pal[1],cal,poste:post,h:H(l,.07),ang:a};add(x);
-    if(R()<(.2+(b.t-t0)/span*.4))add({t:b.t+(R()<.5?0:beat/2),fx:rp(pool(k)),c1:rp(S.pal)[0],c2:rp(S.pal)[1],cal:Math.max(30,cal-25),poste:5-post,h:clamp(x.h+rr(-.08,.05),.4,.95),ang:-a});
+    last=b.t;const pal=palAt(b.t,false),fx=pickFx(k);let cal=calFor(k,l,b.s);if(b.s>.85&&k!=='intro'&&k!=='break')cal=upCal(cal);
+    const post=choosePost(cal>=100?[2,3]:[0,1,2,3,4,5]),a=ang(post),layer=idx%2?.1:-.04;
+    const x={t:b.t,fx,c1:pal[0],c2:pal[1],cal,poste:post,h:clamp(H(l,.05)+layer,.4,.95),ang:a};add(x);
+    if(R()<(.2+(b.t-t0)/span*.4)){const p2=palAt(b.t,true),mp=5-post;use[mp]++;add({t:b.t+(R()<.5?0:beat/2),fx:pickFx(k),c1:p2[0],c2:p2[1],cal:Math.max(30,cal-25),poste:mp,h:clamp(x.h+rr(-.08,.05),.4,.95),ang:-a})}
   });
-  /* chorégraphies réparties sur le spectacle */
-  for(let t=t0+bar*2;t<fStart-bar*2;t+=bar*2){const k=kindAt(t),l=lvlAt(t);if(k==='intro'||k==='break')continue;if(R()<S.patProb*(.4+l)){const pt=rp(S.pat),pal=palAt(t),cal=k==='build'?50:75;PAT[pt](Math.round(t/(beat/2))*beat/2,pal,cal,rp(pool(k)))}}
+  /* chorégraphies et signature du style, réparties sur le spectacle */
+  for(let t=t0+bar*2;t<fStart-bar*2;t+=bar*2){const k=kindAt(t),l=lvlAt(t);if(k==='intro'||k==='break'||nearDrop(t)||nearDrop(t+beat*4))continue;
+    if(R()<S.patProb*(.4+l)){const pt=rp(S.pat),pal=palAt(t,true),cal=k==='build'?50:75;PAT[pt](Math.round(t/(beat/2))*beat/2,pal,cal,pickFx(k))}}
+  secs.filter(s=>s.k==='peak'||(s.k==='build'&&s.b-s.a>12)).forEach(s=>{for(let t=Math.ceil((s.a+bar)/bar)*bar;t<Math.min(s.b,fStart)-bar*2;t+=bar*(s.k==='peak'?4:6)){if(!nearDrop(t)&&!nearDrop(t+beat*4)&&R()<.75)sig(t)}});
   /* ouverture, drops, ruptures calmes */
   add({t:t0-1.2,fx:'fountain',poste:0,dur:Math.min(10,span*.2),c1:S.gold,c2:S.alt,h:.55,cal:75,ang:12});add({t:t0-1.2,fx:'fountain',poste:5,dur:Math.min(10,span*.2),c1:S.gold,c2:S.alt,h:.55,cal:75,ang:-12});
-  const drops=useA&&AU.drops&&AU.drops.length?AU.drops.filter(d=>d>t0+beat*5&&d<fStart-bar):(()=>{const pk=secs.find(s=>s.k==='peak');return pk?[Math.round(pk.a/beat)*beat]:[]})();
   drops.forEach(dropMoment);
-  secs.filter(s=>s.k==='break'&&s.b-s.a>5).forEach(s=>{add({t:s.a+beat,fx:'curtain',poste:2,dur:Math.min(10,s.b-s.a-2),c1:S.gold,c2:S.gold,h:.6,cal:100});add({t:s.a+beat,fx:'curtain',poste:3,dur:Math.min(10,s.b-s.a-2),c1:S.gold,c2:S.gold,h:.6,cal:100})});
+  secs.filter(s=>s.k==='break'&&s.b-s.a>5).forEach(s=>{[2,3].forEach(p=>add({t:s.a+beat,fx:'curtain',poste:p,dur:Math.min(10,s.b-s.a-2),c1:S.gold,c2:S.gold,h:.6,cal:100}))});
   for(let k=0;k<S.curtains;k++){const t=t0+span*(.5+k*.12);add({t:Math.round(t/beat)*beat,fx:'curtain',poste:[1,4,2,3][k%4],dur:Math.min(10,span*.12),c1:S.gold,c2:S.gold,h:.6,cal:100})}
-  /* final : montée en chasse, salve, mines, cascades dorées, bouquet de gros calibres */
-  const f0=tEnd-1;PAT.chase(f0-beat*4,S.pal[0],75,rp(pool('finale')));PAT.fan(f0-beat*2.5,S.pal[1%S.pal.length],75,rp(pool('finale')));
+  /* final : crescendo en paires symétriques, chasse, salve, mines, cascades dorées, bouquet de gros calibres */
+  const f0=tEnd-1;
+  for(let i=0;i<6;i++){const pp=S.pal[i%S.pal.length],c=Math.min(S.calMax,i<2?50:i<4?75:100);[i%3,5-i%3].forEach(p=>add({t:f0-beat*8+i*beat,fx:pickFx('finale'),poste:p,cal:c,c1:pp[0],c2:pp[1],h:.55+i*.06,ang:ang(p)}))}
+  PAT.chase(f0-beat*2,S.pal[0],75,pickFx('finale'));
   add({t:f0,fx:'volley',poste:2,dur:Math.min(9,dur*.1),c1:S.pal[0][0],c2:S.pal[S.pal.length-1][0],cal:75,cnt:1,h:.8});
   [0,2,3,5].forEach((po,i)=>add({t:f0+2+i*.5,fx:'mine',poste:po,cal:100,c1:S.pal[i%S.pal.length][0],c2:S.alt,ang:po<2?12:-12}));
   add({t:f0+5,fx:'curtain',poste:1,dur:7,c1:S.gold,c2:S.gold,h:.62,cal:100});add({t:f0+5,fx:'curtain',poste:4,dur:7,c1:S.gold,c2:S.gold,h:.62,cal:100});
@@ -1835,6 +1863,87 @@ function openCobra(){
 }
 const _shCsv3=$('#shCsv').onclick;$('#shCsv').onclick=()=>SHEETMODE==='cobra'?download(slug(PR.name)+'-plan-de-cablage.csv',new Blob([cobWireCsv()],{type:'text/csv'})):_shCsv3();
 $('#bCobra').onclick=openCobra;
+
+/* =====================================================================
+   16g. OPTIMISATION DES COÛTS : estimation d'après le catalogue, style « économique », réduction de budget
+   Sans prix dans le catalogue, un indice de coût relatif (par calibre et par type) sert de repère.
+   ===================================================================== */
+Object.assign(I.fr,{st_eco:'Économique (meilleur rapport effet/prix)',
+  budget:'Budget et coûts',budgetMax:'Budget maximum (€ HT)',budgetCut:'ou réduire le coût de (%)',budgetLink:'Lier aux produits',budgetOpt:'Optimiser le coût',
+  costNone:'Aucun prix dans le catalogue : ajoutez des prix (Catalogue) pour un coût en euros. L’optimisation utilise sinon un indice relatif.',
+  costLine:(c,n)=>'Coût estimé : '+c+' € HT'+(n?' · '+n+' tirs sans prix':''),costIdx:'Indice de coût relatif (pas des euros)',
+  costLinked:n=>n+' tirs liés à un produit du catalogue',costLinkNone:'Aucun produit du catalogue avec prix et effet simulé à associer.',
+  costDone:(a,b,r,d)=>'Coût '+a+' → '+b+' · '+r+' tirs retirés, '+d+' calibres réduits',costAlready:'Déjà sous le budget.',costKept:'Final et moments forts conservés.',costCfm:'Réduire le coût du spectacle ? (Vous pourrez annuler.)',costFloor:m=>'Budget non atteignable sans toucher au final : minimum '+m+' € HT avec le final conservé.'});
+Object.assign(I.en,{st_eco:'Economy (best effect per euro)',
+  budget:'Budget and costs',budgetMax:'Maximum budget (€ excl. VAT)',budgetCut:'or cut the cost by (%)',budgetLink:'Link to products',budgetOpt:'Optimise the cost',
+  costNone:'No price in the catalog: add prices (Catalog) for a cost in euros. Otherwise the optimiser uses a relative index.',
+  costLine:(c,n)=>'Estimated cost: '+c+' € excl. VAT'+(n?' · '+n+' shots without a price':''),costIdx:'Relative cost index (not euros)',
+  costLinked:n=>n+' shots linked to a catalog product',costLinkNone:'No priced catalog product with a simulated effect to link.',
+  costDone:(a,b,r,d)=>'Cost '+a+' → '+b+' · '+r+' shots removed, '+d+' calibers reduced',costAlready:'Already under budget.',costKept:'Finale and key moments kept.',costCfm:'Reduce the cost of the show? (You can undo.)',costFloor:m=>'Budget not reachable without touching the finale: minimum '+m+' € excl. VAT with the finale kept.'});
+
+/* style économique : petits calibres, beaucoup d'effets au sol et de chorégraphies, un final qui fait de l'effet */
+Object.assign(STYLES,{eco:ST([['#ff3b3b','#ffc94a'],['#3dff7a','#fff4e0'],['#3aa0ff','#fff4e0'],['#ffc94a','#ff8a2a'],['#ff5fc4','#fff4e0']],{intro:['peony','ring'],build:['peony','crossette','ring','star'],peak:['crossette','chrysanthemum','peony','ring','star'],finale:['chrysanthemum','peony','crossette','willow'],break:['ring','star']},{pat:['fan','wave','chase','sym'],dens:.85,gap:1.05,patProb:.65,mines:2,curtains:2,calMax:75,breakOn:0})});
+
+/* ---------- modèle de coût ---------- */
+const IDXC={30:1,50:2.2,75:5,100:11,150:28},IDXF={fountain:.8,mine:2.5,curtain:3,volley:6,comet:.9};
+const idxCost=c=>(IDXC[c.cal]||5)*(IDXF[c.fx]||1);
+const priced=p=>p&&p.priceHT!==''&&p.priceHT!=null&&!isNaN(+p.priceHT)&&+p.priceHT>0;
+function bestProduct(c){
+  const L=CAT.filter(p=>priced(p)&&p.fx===c.fx);if(!L.length)return null;
+  const calOf=p=>+p.cal||0;let same=L.filter(p=>!FX[c.fx].g&&calOf(p)===c.cal||(FX[c.fx].g&&true));
+  if(!same.length){let bd=1e9;L.forEach(p=>{const d=Math.abs(calOf(p)-c.cal);if(d<bd){bd=d}});same=L.filter(p=>Math.abs(calOf(p)-c.cal)===bd)}
+  return same.sort((a,b)=>+a.priceHT-+b.priceHT)[0];
+}
+function unitCost(c){const p=c.prod&&CAT.find(x=>x.id===c.prod);if(priced(p))return{v:+p.priceHT,real:true};const m=bestProduct(c);return m?{v:+m.priceHT,real:true}:{v:null,real:false}}
+function costModel(){
+  const us=PR.cues.map(c=>({c,u:unitCost(c)})),rp=us.filter(x=>x.u.real);let k=1;
+  if(rp.length){const s1=rp.reduce((s,x)=>s+x.u.v,0),s2=rp.reduce((s,x)=>s+idxCost(x.c),0);k=s2?s1/s2:1}
+  const fn=c=>{const u=unitCost(c);return u.real?u.v:idxCost(c)*k};fn.real=rp.length>0;fn.nreal=rp.length;return fn;
+}
+function totalCost(){const m=costModel();let tot=0,miss=0;PR.cues.forEach(c=>{const u=unitCost(c);if(u.real)tot+=u.v;else miss++});return{tot,miss,model:m}}
+const eur=v=>Math.round(v).toLocaleString('fr-FR');
+function costInfo(){const{tot,miss}=totalCost();return PR.cues.length&&(tot>0)?' · ~'+eur(tot)+' € HT'+(miss?'*':''):''}
+const _updInfoBase=updInfo;
+updInfo=function(){_updInfoBase();$('#tlInfo').textContent+=costInfo();const b=$('#bgInfo');if(b){const{tot,miss}=totalCost();b.textContent=tot>0?t('costLine',eur(tot),miss):t('costNone')}};
+
+/* ---------- liaison automatique aux produits les moins chers ---------- */
+function autoLink(){let n=0;PR.cues.forEach(c=>{if(c.prod&&priced(CAT.find(x=>x.id===c.prod)))return;const m=bestProduct(c);if(m){c.prod=m.id;n++}});return n}
+$('#bgLink').onclick=()=>{const n=autoLink();if(!n){toast(t('costLinkNone'));return}commit();changed();toast(t('costLinked',n))};
+
+/* ---------- optimisation : rétrograder les calibres, éclaircir les zones denses, retirer le moins rentable ---------- */
+async function optimizeCost(){
+  if(!PR.cues.length)return;
+  const m0=costModel(),total0=PR.cues.reduce((s,c)=>s+m0(c),0),maxB=parseFloat($('#bgMax').value),cut=clamp(+$('#bgCut').value||30,5,90);
+  const target=maxB>0?maxB:total0*(1-cut/100);if(total0<=target){toast(t('costAlready'));return}
+  if(!await askConfirm(t('costCfm')))return;
+  const dur=duration(),zone=dur*.86,beat=60/(PR.bpm||120);
+  const prot=c=>c.t>=zone||c.fx==='volley'||(c.fx==='strobe'&&c.cal>=75)||c.fx==='saturn'&&c.cal>=150;
+  let removed=0,down=0;const model=()=>costModel();
+  const total=()=>{const m=model();return PR.cues.reduce((s,c)=>s+m(c),0)};
+  /* 1. calibres : 150 → 100 → 75 → 50 hors final */
+  const step={150:100,100:75,75:50};
+  for(let pass=0;pass<3&&total()>target;pass++){
+    const cand=PR.cues.filter(c=>!prot(c)&&!FX[c.fx].g&&step[c.cal]).sort((a,b)=>b.cal-a.cal||costModel()(b)-costModel()(a));
+    for(const c of cand){if(total()<=target)break;c.cal=step[c.cal];c.prod='';fixT(c);down++}
+  }
+  /* 2. zones denses : retirer un tir sur deux quand deux tirs sont à moins d'un battement */
+  if(total()>target){
+    const L=PR.cues.filter(c=>!prot(c)&&!FX[c.fx].g).sort((a,b)=>a.t-b.t);
+    for(let i=1;i<L.length&&total()>target;i++){if(L[i].t-L[i-1].t<beat*.9&&!L[i-1]._rm){L[i]._rm=1}}
+    const rm=PR.cues.filter(c=>c._rm).sort((a,b)=>costModel()(b)-costModel()(a));
+    for(const c of rm){if(total()<=target)break;PR.cues=PR.cues.filter(x=>x!==c);removed++}
+    PR.cues.forEach(c=>delete c._rm);
+  }
+  /* 3. dernier recours : retirer les tirs les moins rentables (coût élevé, petit calibre en dernier) hors final */
+  if(total()>target){
+    const m=model(),cand=PR.cues.filter(c=>!prot(c)).sort((a,b)=>m(b)-m(a));
+    for(const c of cand){if(total()<=target)break;PR.cues=PR.cues.filter(x=>x!==c);removed++}
+  }
+  const after=total();SEL.clear();commit();changed();
+  toast(after>target*1.01?t('costFloor',eur(after)):t('costDone',eur(total0),eur(after),removed,down)+' · '+t('costKept'));
+}
+$('#bgOpt').onclick=optimizeCost;
+updInfo();
 
 /* =====================================================================
    17. DÉMARRAGE
